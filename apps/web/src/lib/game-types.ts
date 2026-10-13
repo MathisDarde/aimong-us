@@ -10,6 +10,7 @@ export type PublicPlayer = {
 export type GameState = {
   game: { id: string; code: string; status: GameStatus; round: number; winner: string | null }
   players: PublicPlayer[]
+  maxPlayers: number
   votedPlayerIds: string[]
 }
 

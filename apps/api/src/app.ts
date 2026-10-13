@@ -22,7 +22,7 @@ function withClientIp(c: Context): Request {
 }
 
 export const app = new Hono()
-  .use('*', requestId())
+  .use('*', requestId({ headerName: '' }))
   .use('*', accessLog)
   .use('*', secureHeaders())
   .use(

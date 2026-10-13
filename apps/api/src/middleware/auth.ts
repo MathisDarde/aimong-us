@@ -7,9 +7,11 @@ export type AuthUser = { id: string; name: string }
 export type AuthEnv = {
   Variables: {
     user: AuthUser
+    tokenExpiresAt: number
   }
 }
 
+const MS_PER_SECOND = 1000
 const BEARER_PREFIX = 'Bearer '
 const WEBSOCKET_BEARER_PROTOCOL = 'bearer'
 
@@ -29,9 +31,10 @@ export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const token = extractToken(c)
   const verified = token ? await auth.api.verifyJWT({ body: { token } }) : null
   const payload = verified?.payload
-  if (!payload?.sub || typeof payload.name !== 'string') {
+  if (!payload?.sub || typeof payload.name !== 'string' || typeof payload.exp !== 'number') {
     return c.json({ error: 'Not authenticated' }, 401)
   }
   c.set('user', { id: payload.sub, name: payload.name })
+  c.set('tokenExpiresAt', payload.exp * MS_PER_SECOND)
   await next()
 })

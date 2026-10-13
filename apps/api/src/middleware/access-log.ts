@@ -3,6 +3,7 @@ import { logInfo } from '../logger.js'
 
 export const accessLog = createMiddleware(async (c, next) => {
   const start = performance.now()
+  c.header('X-Request-Id', c.get('requestId'))
   await next()
   logInfo('request', {
     requestId: c.get('requestId'),
