@@ -3,13 +3,13 @@ import { Avatar } from '@/components/avatar'
 
 function StepCard({
   n,
-  color,
+  colorClass,
   title,
   children,
   scene,
 }: {
   n: number
-  color: string
+  colorClass: string
   title: string
   children: ReactNode
   scene: ReactNode
@@ -21,8 +21,7 @@ function StepCard({
       </div>
       <div className="flex items-center gap-3">
         <span
-          className="flex size-10 items-center justify-center rounded-full border-3 border-ink font-display text-xl font-bold text-ink"
-          style={{ background: color }}
+          className={`flex size-10 items-center justify-center rounded-full border-3 border-ink font-display text-xl font-bold text-ink ${colorClass}`}
         >
           {n}
         </span>
@@ -52,7 +51,7 @@ export function HowItWorks() {
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,280px),1fr))] gap-7">
           <StepCard
             n={1}
-            color="#FFD23F"
+            colorClass="bg-jaune"
             title="Chat"
             scene={
               <div className="flex gap-7">
@@ -62,8 +61,8 @@ export function HowItWorks() {
                 <div className="absolute top-[62px] right-[22px] rounded-[14px_4px_14px_14px] border-3 border-ink bg-jaune px-3 py-1.5 text-sm font-semibold text-ink">
                   LMAOO so true
                 </div>
-                <Avatar color="#FF5CA8" disguise="mustache" size={84} />
-                <Avatar color="#FFD23F" disguise="glasses" size={84} />
+                <Avatar color="rose" disguise="mustache" size={84} />
+                <Avatar color="jaune" disguise="glasses" size={84} />
               </div>
             }
           >
@@ -73,7 +72,7 @@ export function HowItWorks() {
 
           <StepCard
             n={2}
-            color="#4FD6FF"
+            colorClass="bg-cyan"
             title="Suspect"
             scene={
               <>
@@ -83,7 +82,7 @@ export function HowItWorks() {
                 <span className="absolute top-10 right-11 rotate-[14deg] font-display text-[30px] font-bold text-rose">
                   ?
                 </span>
-                <Avatar color="#4FD6FF" disguise="mask" size={104} />
+                <Avatar color="cyan" disguise="mask" size={104} />
                 <div className="absolute top-[58px] left-[calc(50%+4px)] size-16 rounded-full border-[7px] border-creme shadow-hard-3" />
                 <div className="absolute top-[116px] left-[calc(50%+58px)] h-11 w-3 -rotate-40 rounded-md border-3 border-ink bg-creme" />
               </>
@@ -95,11 +94,11 @@ export function HowItWorks() {
 
           <StepCard
             n={3}
-            color="#43F0B5"
+            colorClass="bg-menthe"
             title="Unmask"
             scene={
               <>
-                <Avatar color="#4FD6FF" disguise="mask" reveal="ai" dropped size={104} />
+                <Avatar color="cyan" disguise="mask" reveal="ai" dropped size={104} />
                 <div className="absolute right-[calc(50%-120px)] bottom-3.5 flex h-[22px] w-[58px] rotate-[18deg] items-center justify-around rounded-[11px] border-3 border-ink bg-rose px-2">
                   <span className="size-[9px] rounded-full bg-ink" />
                   <span className="size-[9px] rounded-full bg-ink" />

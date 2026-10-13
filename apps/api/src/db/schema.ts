@@ -1,6 +1,8 @@
+import { sql } from 'drizzle-orm'
 import {
   bigint,
   boolean,
+  check,
   index,
   integer,
   pgEnum,
@@ -93,9 +95,10 @@ export const rateLimit = pgTable('rate_limit', {
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 })
 
+export const MAX_PLAYERS = 10
+
 export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'finished'])
 
-/** Une partie : un salon de chat avec un code à partager */
 export const games = pgTable('games', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 8 }).notNull().unique(),
@@ -105,7 +108,6 @@ export const games = pgTable('games', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-/** Joueurs d'une partie, humains ou IA imposteurs */
 export const players = pgTable(
   'players',
   {
@@ -115,15 +117,19 @@ export const players = pgTable(
       .references(() => games.id, { onDelete: 'cascade' }),
     userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
     nickname: varchar('nickname', { length: 32 }).notNull(),
+    seat: integer('seat').notNull(),
     isAi: boolean('is_ai').notNull().default(false),
-    persona: text('persona'), // prompt de personnalité pour les IA
+    persona: text('persona'), // personality prompt for AI players
     isEliminated: boolean('is_eliminated').notNull().default(false),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
   },
-  (t) => [unique('players_game_user_unique').on(t.gameId, t.userId)],
+  (t) => [
+    unique('players_game_user_unique').on(t.gameId, t.userId),
+    unique('players_game_seat_unique').on(t.gameId, t.seat),
+    check('players_seat_range', sql`${t.seat} between 1 and ${sql.raw(String(MAX_PLAYERS))}`),
+  ],
 )
 
-/** Messages du chat */
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   gameId: uuid('game_id')
@@ -136,7 +142,6 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-/** Votes d'élimination, un par joueur et par manche */
 export const votes = pgTable(
   'votes',
   {

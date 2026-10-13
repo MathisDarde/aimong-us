@@ -1,18 +1,15 @@
-import { useState } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '@/components/avatar'
+import { JoinCodeForm } from '@/components/game/join-code-form'
 import { Button } from '@/components/ui/button'
-import { useIsMobile } from '@/hooks/use-is-mobile'
 import { ROUTES } from '@/lib/routes'
 
-const BUNTING = ['#FF5CA8', '#FFD23F', '#43F0B5', '#4FD6FF', '#FF5CA8', '#FFD23F', '#43F0B5']
+const BUNTING = ['bg-rose', 'bg-jaune', 'bg-menthe', 'bg-cyan', 'bg-rose', 'bg-jaune', 'bg-menthe']
+const SMALL_AVATAR = 'h-auto w-[62px] min-[760px]:w-[112px]'
+const MEDIUM_AVATAR = 'h-auto w-[74px] min-[760px]:w-[132px]'
+const LARGE_AVATAR = 'h-auto w-[86px] min-[760px]:w-[152px]'
 
 export function Hero() {
-  const [code, setCode] = useState('')
-  const mobile = useIsMobile()
-  const [s1, s2, s3] = mobile ? [62, 74, 86] : [112, 132, 152]
-  const ready = code.length === 6
-
   return (
     <section
       className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-[clamp(32px,5vw,64px)] px-[clamp(16px,4vw,40px)] pt-[clamp(24px,5vw,64px)] pb-[clamp(48px,7vw,96px)]"
@@ -41,32 +38,11 @@ export function Hero() {
             <Link to={ROUTES.play}>Create a game</Link>
           </Button>
 
-          <form
-            onSubmit={(e) => e.preventDefault()}
-            className="flex items-stretch overflow-hidden rounded-[18px] border-4 border-ink bg-creme shadow-hard-6"
-          >
-            <input
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))
-              }
-              placeholder="ABC123"
-              maxLength={6}
-              aria-label="Game code"
-              className="w-[170px] border-0 bg-transparent px-4 font-display text-2xl font-semibold tracking-[4px] text-ink uppercase outline-0 placeholder:text-ink/35"
-            />
-            <button
-              type="submit"
-              disabled={!ready}
-              className={`border-0 border-l-4 border-ink px-5 font-display text-lg font-semibold text-ink disabled:cursor-not-allowed ${ready ? 'cursor-pointer bg-menthe' : 'bg-cyan'}`}
-            >
-              {ready ? 'Go!' : `Join ${code.length}/6`}
-            </button>
-          </form>
+          <JoinCodeForm />
         </div>
 
         <span className="text-sm opacity-70">
-          Got a code from a friend? 6 characters, no account needed.
+          Got a code from a friend? Sign in, enter it and you are in.
         </span>
       </div>
 
@@ -76,8 +52,7 @@ export function Hero() {
           {BUNTING.map((c, i) => (
             <span
               key={i}
-              className="h-[22px] w-[18px] rounded-full border-3 border-ink"
-              style={{ background: c }}
+              className={`h-[22px] w-[18px] rounded-full border-3 border-ink ${c}`}
             />
           ))}
         </div>
@@ -88,19 +63,19 @@ export function Hero() {
         </div>
         <div className="absolute inset-x-0 bottom-[12%] flex items-end justify-center">
           <div className="-mr-3.5 -rotate-6">
-            <Avatar color="#FFD23F" disguise="glasses" size={s1} />
+            <Avatar color="jaune" disguise="glasses" className={SMALL_AVATAR} />
           </div>
           <div className="-mr-2.5">
-            <Avatar color="#FF5CA8" disguise="mustache" size={s2} />
+            <Avatar color="rose" disguise="mustache" className={MEDIUM_AVATAR} />
           </div>
           <div className="relative z-[1]">
-            <Avatar color="#4FD6FF" disguise="mask" antenna size={s3} />
+            <Avatar color="cyan" disguise="mask" antenna className={LARGE_AVATAR} />
           </div>
           <div className="-ml-2.5">
-            <Avatar color="#43F0B5" disguise="bag" size={s2} />
+            <Avatar color="menthe" disguise="bag" className={MEDIUM_AVATAR} />
           </div>
           <div className="-ml-3.5 rotate-[5deg]">
-            <Avatar color="#FFF4DF" disguise="hat" size={s1} />
+            <Avatar color="creme" disguise="hat" className={SMALL_AVATAR} />
           </div>
         </div>
       </div>
