@@ -15,10 +15,11 @@ type ChatPanelProps = {
 
 export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
-  const endRef = useRef<HTMLDivElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ block: 'end' })
+    const list = listRef.current
+    if (list) list.scrollTop = list.scrollHeight
   }, [messages.length])
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -35,7 +36,7 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
 
   return (
     <div className="flex h-[min(70svh,560px)] flex-col overflow-hidden rounded-[28px] border-4 border-ink bg-ink shadow-hard-10">
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-5" aria-live="polite">
+      <div ref={listRef} className="flex flex-1 flex-col gap-3 overflow-y-auto p-5" aria-live="polite">
         {messages.length === 0 && <p className="m-0 opacity-70">No messages yet. Say hi!</p>}
         {messages.map((message) => {
           const mine = message.playerId === meId
@@ -53,7 +54,6 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
             </div>
           )
         })}
-        <div ref={endRef} />
       </div>
 
       <form onSubmit={handleSubmit} className="flex gap-3 border-t-4 border-ink bg-nuit-400 p-3">

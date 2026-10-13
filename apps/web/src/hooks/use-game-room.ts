@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAccessToken } from '@/lib/auth-client'
-import { WEBSOCKET_BEARER_PROTOCOL, gameSocketUrl, loadGameSnapshot } from '@/lib/game-api'
+import { ApiError } from '@/lib/api'
+import { WEBSOCKET_BEARER_PROTOCOL, fetchGame, gameSocketUrl, loadGameSnapshot } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
+
+const MAX_RECONNECT_ATTEMPTS = 8
+const RECONNECT_BASE_DELAY_MS = 1000
+const RECONNECT_MAX_DELAY_MS = 15_000
+const HTTP_SERVER_ERROR = 500
 
 export type RoomStatus = 'loading' | 'live' | 'disconnected' | 'error'
 
@@ -12,6 +18,12 @@ function parseServerEvent(raw: unknown): ServerEvent | null {
   } catch {
     return null
   }
+}
+
+function mergeMessages(current: ChatMessage[], incoming: ChatMessage[]) {
+  const byId = new Map(current.map((message) => [message.id, message]))
+  for (const message of incoming) byId.set(message.id, message)
+  return [...byId.values()].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
 }
 
 function applyEvent(state: GameState, event: ServerEvent): GameState {
@@ -42,14 +54,28 @@ export function useGameRoom(code: string) {
 
   useEffect(() => {
     let cancelled = false
+    let failures = 0
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
+
+    function fail(message: string) {
+      setError(message)
+      setStatus('error')
+    }
+
+    function scheduleReconnect() {
+      failures += 1
+      if (failures > MAX_RECONNECT_ATTEMPTS) {
+        fail('Connection lost, reload the page')
+        return
+      }
+      setStatus('disconnected')
+      const delay = Math.min(RECONNECT_BASE_DELAY_MS * 2 ** (failures - 1), RECONNECT_MAX_DELAY_MS)
+      retryTimer = setTimeout(connect, delay)
+    }
 
     function handleEvent(event: ServerEvent) {
       if (event.type === 'chat') {
-        setMessages((current) =>
-          current.some((message) => message.id === event.message.id)
-            ? current
-            : [...current, event.message],
-        )
+        setMessages((current) => mergeMessages(current, [event.message]))
         return
       }
       if (event.type === 'error') {
@@ -59,21 +85,30 @@ export function useGameRoom(code: string) {
       setState((current) => (current ? applyEvent(current, event) : current))
     }
 
+    async function catchUpMessages() {
+      const snapshot = await fetchGame(code).catch(() => null)
+      if (!cancelled && snapshot) setMessages((current) => mergeMessages(current, snapshot.messages))
+    }
+
     async function connect() {
       try {
         const snapshot = await loadGameSnapshot(code)
         if (cancelled) return
         setState(snapshot.state)
-        setMessages(snapshot.messages)
+        setMessages((current) => mergeMessages(current, snapshot.messages))
         setMe(snapshot.me)
 
         const token = await getAccessToken()
         if (cancelled) return
         const socket = new WebSocket(gameSocketUrl(code), [WEBSOCKET_BEARER_PROTOCOL, token])
         socketRef.current = socket
-        socket.onopen = () => setStatus('live')
+        socket.onopen = () => {
+          failures = 0
+          setStatus('live')
+          void catchUpMessages()
+        }
         socket.onclose = () => {
-          if (!cancelled) setStatus('disconnected')
+          if (!cancelled) scheduleReconnect()
         }
         socket.onmessage = (message) => {
           const event = parseServerEvent(message.data)
@@ -81,8 +116,11 @@ export function useGameRoom(code: string) {
         }
       } catch (err) {
         if (cancelled) return
-        setError(err instanceof Error ? err.message : 'Could not load the game')
-        setStatus('error')
+        if (err instanceof ApiError && err.status < HTTP_SERVER_ERROR) {
+          fail(err.message)
+          return
+        }
+        scheduleReconnect()
       }
     }
 
@@ -90,6 +128,7 @@ export function useGameRoom(code: string) {
 
     return () => {
       cancelled = true
+      clearTimeout(retryTimer)
       socketRef.current?.close()
       socketRef.current = null
     }

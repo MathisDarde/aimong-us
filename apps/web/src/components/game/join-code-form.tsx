@@ -1,8 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { GAME_CODE_LENGTH, sanitizeGameCode } from '@/lib/game-code'
 import { gamePath } from '@/lib/routes'
-
-const GAME_CODE_LENGTH = 6
 
 export function JoinCodeForm() {
   const navigate = useNavigate()
@@ -21,14 +20,7 @@ export function JoinCodeForm() {
     >
       <input
         value={code}
-        onChange={(e) =>
-          setCode(
-            e.target.value
-              .toUpperCase()
-              .replace(/[^A-Z0-9]/g, '')
-              .slice(0, GAME_CODE_LENGTH),
-          )
-        }
+        onChange={(e) => setCode(sanitizeGameCode(e.target.value))}
         placeholder="ABC123"
         maxLength={GAME_CODE_LENGTH}
         aria-label="Game code"

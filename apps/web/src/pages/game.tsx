@@ -3,9 +3,16 @@ import { ChatPanel } from '@/components/game/chat-panel'
 import { PlayerList } from '@/components/game/player-list'
 import { Logo } from '@/components/landing/logo'
 import { Button } from '@/components/ui/button'
-import { useGameRoom } from '@/hooks/use-game-room'
+import { useGameRoom, type RoomStatus } from '@/hooks/use-game-room'
 import type { GameState } from '@/lib/game-types'
 import { ROUTES } from '@/lib/routes'
+
+const CONNECTION_NOTICE: Record<RoomStatus, string> = {
+  loading: 'Connecting… messages will unlock once live.',
+  disconnected: 'Connection lost, reconnecting…',
+  live: '',
+  error: '',
+}
 
 function statusLabel({ game }: GameState) {
   if (game.status === 'lobby') return 'Waiting for players'
@@ -61,7 +68,7 @@ function GameRoom({ code }: { code: string }) {
       <main className="mx-auto flex max-w-[1280px] flex-wrap items-start gap-[clamp(24px,4vw,48px)]">
         <section className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
           <h2 className="m-0 font-display text-2xl font-bold">
-            Players {state.players.length}/10
+            Players {state.players.length}/{state.maxPlayers}
           </h2>
           <PlayerList
             players={state.players}
@@ -80,7 +87,7 @@ function GameRoom({ code }: { code: string }) {
             canSend={canChat}
             onSend={(content) => send({ type: 'chat', content })}
           />
-          {!live && <p className="m-0 text-sm opacity-80">Connecting… messages will unlock once live.</p>}
+          {!live && <p className="m-0 text-sm opacity-80">{CONNECTION_NOTICE[status]}</p>}
           {notice && (
             <p role="alert" className="m-0 font-semibold text-rose">
               {notice}

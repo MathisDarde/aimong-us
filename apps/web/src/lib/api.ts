@@ -20,10 +20,9 @@ function errorMessage(body: unknown): string {
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const token = await getAccessToken()
-  const response = await fetch(path, {
-    ...init,
-    headers: { ...init?.headers, Authorization: `Bearer ${token}` },
-  })
+  const headers = new Headers(init?.headers)
+  headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(path, { ...init, headers })
   const body: unknown = await response.json().catch(() => null)
   if (response.status === 401) clearAccessToken()
   if (!response.ok) throw new ApiError(errorMessage(body), response.status)

@@ -25,7 +25,7 @@ import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.j
 import { validate } from '../validation.js'
 import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
 
-const SEAT_ATTEMPTS = 3
+const WS_POLICY_VIOLATION = 1008
 const PG_UNIQUE_VIOLATION = '23505'
 const PG_CHECK_VIOLATION = '23514'
 const GAME_CREATION_WINDOW_MS = 60_000
@@ -133,7 +133,7 @@ async function handleClientMessage(playerId: string, raw: unknown, ws: WSContext
   if (!event) return send(ws, { type: 'error', message: 'Invalid event' })
 
   const found = await findPlayerWithGame(playerId)
-  if (!found) return ws.close(1008, 'Game or player not found')
+  if (!found) return ws.close(WS_POLICY_VIOLATION, 'Game or player not found')
   const { game, player } = found
 
   if (event.type === 'chat') return handleChat(game, player, event.content, ws)
@@ -150,7 +150,7 @@ async function seatPlayer(
   game: Game,
   user: AuthUser,
 ): Promise<{ player: Player; created: boolean } | 'full'> {
-  for (let attempt = 0; attempt < SEAT_ATTEMPTS; attempt++) {
+  for (let attempt = 0; attempt < MAX_PLAYERS; attempt++) {
     try {
       const [inserted] = await db
         .insert(players)
@@ -236,17 +236,23 @@ export const gamesRoutes = new Hono<AuthEnv>()
     upgradeWebSocket((c) => {
       const gameId: string = c.get('game').id
       const playerId: string = c.get('player').id
+      const tokenExpiresAt: number = c.get('tokenExpiresAt')
       let client: Client | undefined
+      let expiryTimer: ReturnType<typeof setTimeout> | undefined
 
       return {
         onOpen(_evt, ws) {
           const isFirstConnection = !onlinePlayerIds(gameId).has(playerId)
           client = { playerId, ws }
+          expiryTimer = setTimeout(
+            () => ws.close(WS_POLICY_VIOLATION, 'Token expired'),
+            Math.max(0, tokenExpiresAt - Date.now()),
+          )
           joinRoom(gameId, client)
 
           runSafely(ws, async () => {
             const game = await findGameById(gameId)
-            if (!game) return ws.close(1008, 'Game not found')
+            if (!game) return ws.close(WS_POLICY_VIOLATION, 'Game not found')
             const state = await loadGameState(game)
             if (isFirstConnection) broadcast(gameId, { type: 'game_state', state })
             else send(ws, { type: 'game_state', state })
@@ -256,6 +262,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
           runSafely(ws, () => handleClientMessage(playerId, evt.data, ws))
         },
         onClose() {
+          clearTimeout(expiryTimer)
           if (!client) return
           leaveRoom(gameId, client)
           if (!onlinePlayerIds(gameId).has(playerId)) {
