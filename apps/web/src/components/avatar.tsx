@@ -1,9 +1,12 @@
 import type { CSSProperties } from 'react'
+import { cn } from '@/lib/utils'
+
+export type AvatarColor = 'rose' | 'jaune' | 'menthe' | 'cyan' | 'creme'
 
 export type Disguise = 'bag' | 'mustache' | 'glasses' | 'mask' | 'hat' | 'none'
 
 type AvatarProps = {
-  color?: string
+  color?: AvatarColor
   disguise?: Disguise
   size?: number
   reveal?: 'human' | 'ai'
@@ -12,12 +15,16 @@ type AvatarProps = {
   className?: string
 }
 
-const INK = '#0E0B26'
-const CREME = '#FFF4DF'
-const MENTHE = '#43F0B5'
+const cssColor = (token: string) => `var(--color-${token})`
+
+const INK = cssColor('ink')
+const CREME = cssColor('creme')
+const MENTHE = cssColor('menthe')
+const ROSE = cssColor('rose')
+const JAUNE = cssColor('jaune')
 
 export function Avatar({
-  color = '#4FD6FF',
+  color: colorToken = 'cyan',
   disguise = 'mask',
   size = 96,
   reveal = 'human',
@@ -25,7 +32,8 @@ export function Avatar({
   antenna = false,
   className,
 }: AvatarProps) {
-  const accent = color === '#FF5CA8' ? '#FFD23F' : '#FF5CA8'
+  const color = cssColor(colorToken)
+  const accent = colorToken === 'rose' ? JAUNE : ROSE
   const showRobot = dropped && reveal === 'ai'
   const smile = dropped && reveal === 'human'
   const showAntenna = antenna && !dropped
@@ -42,8 +50,7 @@ export function Avatar({
       width={size}
       height={(size * 130) / 120}
       viewBox="0 0 120 130"
-      className={className}
-      style={{ overflow: 'visible', display: 'block' }}
+      className={cn('block overflow-visible', className)}
       aria-hidden
     >
       {showRobot ? (
@@ -77,8 +84,8 @@ export function Avatar({
       {smile && (
         <>
           <path d="M45 86 Q60 100 75 86" stroke={INK} strokeWidth="4" fill="none" strokeLinecap="round" />
-          <circle cx="34" cy="82" r="6" fill="#FF5CA8" opacity="0.55" />
-          <circle cx="86" cy="82" r="6" fill="#FF5CA8" opacity="0.55" />
+          <circle cx="34" cy="82" r="6" fill={ROSE} opacity="0.55" />
+          <circle cx="86" cy="82" r="6" fill={ROSE} opacity="0.55" />
         </>
       )}
 

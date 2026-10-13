@@ -1,0 +1,57 @@
+import { Avatar } from '@/components/avatar'
+import type { PublicPlayer } from '@/lib/game-types'
+import { playerLook } from '@/lib/player-look'
+import { cn } from '@/lib/utils'
+
+type PlayerListProps = {
+  players: PublicPlayer[]
+  meId: string | null
+  votedPlayerIds: string[]
+  canVote: boolean
+  onVote: (targetId: string) => void
+}
+
+export function PlayerList({ players, meId, votedPlayerIds, canVote, onVote }: PlayerListProps) {
+  const hasVoted = meId !== null && votedPlayerIds.includes(meId)
+
+  return (
+    <ul className="m-0 flex list-none flex-col gap-3 p-0">
+      {players.map((player, index) => {
+        const { color, disguise } = playerLook(index)
+        const isMe = player.id === meId
+        const votable = canVote && !hasVoted && !isMe && !player.isEliminated
+
+        return (
+          <li
+            key={player.id}
+            className={cn(
+              'flex items-center gap-3 rounded-[18px] border-3 border-ink bg-nuit px-3 py-2',
+              player.isEliminated && 'opacity-50',
+            )}
+          >
+            <Avatar color={color} disguise={disguise} size={40} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate font-display text-base font-semibold">
+                {player.nickname}
+                {isMe && ' (you)'}
+              </span>
+              <span className="text-xs opacity-70">
+                {player.isEliminated ? 'Eliminated' : player.online ? 'Online' : 'Offline'}
+                {votedPlayerIds.includes(player.id) && ' · voted'}
+              </span>
+            </div>
+            {votable && (
+              <button
+                type="button"
+                onClick={() => onVote(player.id)}
+                className="cursor-pointer rounded-full border-3 border-ink bg-rose px-3 py-1 font-display text-sm font-semibold text-ink"
+              >
+                Vote
+              </button>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}

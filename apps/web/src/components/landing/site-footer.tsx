@@ -6,7 +6,7 @@ export function SiteFooter() {
     <footer className="bg-ink px-[clamp(16px,4vw,40px)] py-10">
       <div className="mx-auto flex max-w-[1280px] flex-wrap items-center justify-between gap-x-12 gap-y-6">
         <div className="flex items-center gap-2.5">
-          <Avatar color="#FF5CA8" disguise="mustache" size={36} />
+          <Avatar color="rose" disguise="mustache" size={36} />
           <div className="flex flex-col">
             <Logo className="text-xl" />
             <span className="text-sm opacity-70">

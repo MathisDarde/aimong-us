@@ -21,6 +21,7 @@ export type GameState = {
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 6
+export const GAME_CODE_REGEX = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`, 'i')
 const MESSAGES_HISTORY_LIMIT = 100
 
 export function generateGameCode(): string {
@@ -36,8 +37,16 @@ export async function findGameById(id: string): Promise<Game | undefined> {
   return db.query.games.findFirst({ where: eq(games.id, id) })
 }
 
-export async function findPlayerById(id: string): Promise<Player | undefined> {
-  return db.query.players.findFirst({ where: eq(players.id, id) })
+export async function findPlayerWithGame(
+  playerId: string,
+): Promise<{ player: Player; game: Game } | undefined> {
+  const [row] = await db
+    .select({ player: players, game: games })
+    .from(players)
+    .innerJoin(games, eq(players.gameId, games.id))
+    .where(eq(players.id, playerId))
+    .limit(1)
+  return row
 }
 
 export async function findPlayer(gameId: string, userId: string): Promise<Player | undefined> {

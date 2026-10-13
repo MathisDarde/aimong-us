@@ -36,7 +36,7 @@ export const app = new Hono()
     '/api/*',
     bodyLimit({
       maxSize: 32 * 1024,
-      onError: (c) => c.json({ error: 'Requête trop volumineuse' }, 413),
+      onError: (c) => c.json({ error: 'Request too large' }, 413),
     }),
   )
   .on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(withClientIp(c)))
@@ -45,7 +45,7 @@ export const app = new Hono()
   .route('/api/games', gamesRoutes)
   .onError((err, c) => {
     console.error(err)
-    return c.json({ error: 'Erreur interne' }, 500)
+    return c.json({ error: 'Internal error' }, 500)
   })
 
 export type AppType = typeof app

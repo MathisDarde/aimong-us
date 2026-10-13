@@ -10,7 +10,7 @@ export type AuthEnv = {
 
 export const requireAuth = createMiddleware<AuthEnv>(async (c, next) => {
   const result = await auth.api.getSession({ headers: c.req.raw.headers })
-  if (!result) return c.json({ error: 'Non authentifié' }, 401)
+  if (!result) return c.json({ error: 'Not authenticated' }, 401)
   c.set('user', result.user)
   c.set('session', result.session)
   await next()
