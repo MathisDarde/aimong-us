@@ -20,4 +20,8 @@ export const env = {
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   BETTER_AUTH_SECRET,
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+  TRUSTED_PROXIES: (process.env.TRUSTED_PROXIES ?? '')
+    .split(',')
+    .map((proxy) => proxy.trim())
+    .filter(Boolean),
 }
