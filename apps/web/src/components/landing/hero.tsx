@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Avatar } from '@/components/avatar'
 import { Button } from '@/components/ui/button'
-import { useIsMobile } from '@/hooks/use-is-mobile'
 
-const BUNTING = ['#FF5CA8', '#FFD23F', '#43F0B5', '#4FD6FF', '#FF5CA8', '#FFD23F', '#43F0B5']
+const BUNTING = ['bg-rose', 'bg-jaune', 'bg-menthe', 'bg-cyan', 'bg-rose', 'bg-jaune', 'bg-menthe']
+const SMALL_AVATAR = 'h-auto w-[62px] min-[760px]:w-[112px]'
+const MEDIUM_AVATAR = 'h-auto w-[74px] min-[760px]:w-[132px]'
+const LARGE_AVATAR = 'h-auto w-[86px] min-[760px]:w-[152px]'
 
 export function Hero() {
   const [code, setCode] = useState('')
-  const mobile = useIsMobile()
-  const [s1, s2, s3] = mobile ? [62, 74, 86] : [112, 132, 152]
   const ready = code.length === 6
 
   return (
@@ -73,8 +73,7 @@ export function Hero() {
           {BUNTING.map((c, i) => (
             <span
               key={i}
-              className="h-[22px] w-[18px] rounded-full border-3 border-ink"
-              style={{ background: c }}
+              className={`h-[22px] w-[18px] rounded-full border-3 border-ink ${c}`}
             />
           ))}
         </div>
@@ -85,19 +84,19 @@ export function Hero() {
         </div>
         <div className="absolute inset-x-0 bottom-[12%] flex items-end justify-center">
           <div className="-mr-3.5 -rotate-6">
-            <Avatar color="#FFD23F" disguise="glasses" size={s1} />
+            <Avatar color="jaune" disguise="glasses" className={SMALL_AVATAR} />
           </div>
           <div className="-mr-2.5">
-            <Avatar color="#FF5CA8" disguise="mustache" size={s2} />
+            <Avatar color="rose" disguise="mustache" className={MEDIUM_AVATAR} />
           </div>
           <div className="relative z-[1]">
-            <Avatar color="#4FD6FF" disguise="mask" antenna size={s3} />
+            <Avatar color="cyan" disguise="mask" antenna className={LARGE_AVATAR} />
           </div>
           <div className="-ml-2.5">
-            <Avatar color="#43F0B5" disguise="bag" size={s2} />
+            <Avatar color="menthe" disguise="bag" className={MEDIUM_AVATAR} />
           </div>
           <div className="-ml-3.5 rotate-[5deg]">
-            <Avatar color="#FFF4DF" disguise="hat" size={s1} />
+            <Avatar color="creme" disguise="hat" className={SMALL_AVATAR} />
           </div>
         </div>
       </div>

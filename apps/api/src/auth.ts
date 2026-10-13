@@ -57,7 +57,7 @@ export const auth = betterAuth({
           const name = data.name.trim()
           if (!name || name.length > NAME_MAX_LENGTH) {
             throw new APIError('BAD_REQUEST', {
-              message: `Le pseudo doit faire entre 1 et ${NAME_MAX_LENGTH} caractères`,
+              message: `Nickname must be between 1 and ${NAME_MAX_LENGTH} characters`,
             })
           }
           return { data: { ...data, name, email: data.email.trim().toLowerCase() } }
@@ -69,7 +69,7 @@ export const auth = betterAuth({
           const name = data.name.trim()
           if (!name || name.length > NAME_MAX_LENGTH) {
             throw new APIError('BAD_REQUEST', {
-              message: `Le pseudo doit faire entre 1 et ${NAME_MAX_LENGTH} caractères`,
+              message: `Nickname must be between 1 and ${NAME_MAX_LENGTH} characters`,
             })
           }
           return { data: { ...data, name } }

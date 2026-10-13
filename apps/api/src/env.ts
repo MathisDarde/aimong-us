@@ -2,7 +2,7 @@ import 'dotenv/config'
 
 function required(name: string): string {
   const value = process.env[name]
-  if (!value) throw new Error(`Variable d'environnement manquante : ${name}`)
+  if (!value) throw new Error(`Missing environment variable: ${name}`)
   return value
 }
 
@@ -10,7 +10,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 const BETTER_AUTH_SECRET = required('BETTER_AUTH_SECRET')
 
 if (BETTER_AUTH_SECRET.length < 32) {
-  throw new Error('BETTER_AUTH_SECRET doit faire au moins 32 caractères')
+  throw new Error('BETTER_AUTH_SECRET must be at least 32 characters long')
 }
 
 export const env = {

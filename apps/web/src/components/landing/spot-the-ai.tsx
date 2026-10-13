@@ -1,11 +1,20 @@
 import { useState } from 'react'
-import { Avatar, type Disguise } from '@/components/avatar'
+import { Avatar, type AvatarColor, type Disguise } from '@/components/avatar'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
+type MsgColor = Exclude<AvatarColor, 'creme'>
+
+const MSG_COLOR_CLASSES: Record<MsgColor, { text: string; bg: string }> = {
+  rose: { text: 'text-rose', bg: 'bg-rose' },
+  jaune: { text: 'text-jaune', bg: 'bg-jaune' },
+  menthe: { text: 'text-menthe', bg: 'bg-menthe' },
+  cyan: { text: 'text-cyan', bg: 'bg-cyan' },
+}
+
 type Msg = {
   name: string
-  color: string
+  color: MsgColor
   disguise: Disguise
   time: string
   text: string
@@ -16,7 +25,7 @@ type Msg = {
 const MSGS: Msg[] = [
   {
     name: 'Kevin_93',
-    color: '#FF5CA8',
+    color: 'rose',
     disguise: 'mustache',
     time: '23:41',
     text: 'thursday shepherds pie. tastes like wet cardboard ngl',
@@ -25,7 +34,7 @@ const MSGS: Msg[] = [
   },
   {
     name: 'Margaux',
-    color: '#FFD23F',
+    color: 'jaune',
     disguise: 'glasses',
     time: '23:41',
     text: "LMAOO the square fish sticks. nobody ever explained to me why they're square",
@@ -34,7 +43,7 @@ const MSGS: Msg[] = [
   },
   {
     name: 'Camille_R',
-    color: '#4FD6FF',
+    color: 'cyan',
     disguise: 'mask',
     time: '23:42',
     text: 'Personally, I would say the cauliflower gratin: a texture that is both soft and surprisingly dry. A memorable culinary experience!',
@@ -42,7 +51,7 @@ const MSGS: Msg[] = [
   },
   {
     name: 'Uncle Bernard',
-    color: '#43F0B5',
+    color: 'menthe',
     disguise: 'bag',
     time: '23:42',
     text: "creamed spinach… just thinkin about it gives me chills 😭",
@@ -77,8 +86,7 @@ export function SpotTheAI() {
           {done && (
             <div className="flex flex-col gap-3 rounded-[20px] border-4 border-ink bg-nuit-400 p-5 shadow-hard-6 animate-in fade-in slide-in-from-bottom-2">
               <div
-                className="font-display text-[28px] font-bold"
-                style={{ color: right ? '#43F0B5' : '#FF5CA8' }}
+                className={cn('font-display text-[28px] font-bold', right ? 'text-menthe' : 'text-rose')}
               >
                 {right ? 'Good catch, detective!' : `Nope, ${MSGS[picked].name} is human.`}
               </div>
@@ -110,7 +118,7 @@ export function SpotTheAI() {
           <div className="flex flex-col gap-5 px-5 pt-6 pb-7">
             {MSGS.map((m, i) => {
               const dropped = done && (m.ai || i === picked)
-              const stampColor = m.ai ? '#43F0B5' : '#FF5CA8'
+              const stampClasses = m.ai ? 'border-menthe text-menthe' : 'border-rose text-rose'
               return (
                 <button
                   key={m.name}
@@ -120,13 +128,8 @@ export function SpotTheAI() {
                   className={cn(
                     'flex items-start gap-3 rounded-[20px] p-2 text-left outline-offset-2 transition-colors hover:bg-nuit disabled:cursor-default',
                     !done && 'cursor-pointer',
+                    done && i === picked && ['outline-4', 'outline-solid', right ? 'outline-menthe' : 'outline-rose'],
                   )}
-                  style={{
-                    outline:
-                      done && i === picked
-                        ? `4px solid ${right ? '#43F0B5' : '#FF5CA8'}`
-                        : '0px solid transparent',
-                  }}
                 >
                   <div className="relative flex-none">
                     <Avatar
@@ -139,22 +142,28 @@ export function SpotTheAI() {
                   </div>
                   <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                     <div className="flex items-baseline gap-2">
-                      <span className="font-display text-base font-semibold" style={{ color: m.color }}>
+                      <span
+                        className={cn('font-display text-base font-semibold', MSG_COLOR_CLASSES[m.color].text)}
+                      >
                         {m.name}
                       </span>
                       <span className="text-xs opacity-60">{m.time}</span>
                       {dropped && (
                         <span
-                          className="ml-auto -rotate-6 rounded-lg border-3 px-2 font-display text-sm font-bold tracking-[1.5px]"
-                          style={{ borderColor: stampColor, color: stampColor }}
+                          className={cn(
+                            'ml-auto -rotate-6 rounded-lg border-3 px-2 font-display text-sm font-bold tracking-[1.5px]',
+                            stampClasses,
+                          )}
                         >
                           {m.ai ? 'AI' : 'HUMAN'}
                         </span>
                       )}
                     </div>
                     <div
-                      className="self-start rounded-[4px_18px_18px_18px] border-3 border-ink px-3.5 py-2.5 text-base leading-[1.45] text-pretty text-ink shadow-hard-3"
-                      style={{ background: m.color }}
+                      className={cn(
+                        'self-start rounded-[4px_18px_18px_18px] border-3 border-ink px-3.5 py-2.5 text-base leading-[1.45] text-pretty text-ink shadow-hard-3',
+                        MSG_COLOR_CLASSES[m.color].bg,
+                      )}
                     >
                       {m.text}
                     </div>

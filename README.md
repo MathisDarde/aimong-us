@@ -39,6 +39,10 @@ apps/
   web/   Vite + React
 ```
 
+## Deployment constraints
+
+Game rooms and online presence live in the API process memory, so the API must run as a single instance until they move to a shared store.
+
 ## Branches
 
 - `main`: stable
