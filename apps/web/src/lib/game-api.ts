@@ -6,15 +6,15 @@ type GameEntry = { state: GameState; me: string }
 const JSON_HEADERS = { 'Content-Type': 'application/json' }
 
 export function createGame() {
-  return apiFetch<GameEntry>('/api/games', { method: 'POST', headers: JSON_HEADERS })
+  return apiFetch<GameEntry>('/api/v1/games', { method: 'POST', headers: JSON_HEADERS })
 }
 
 export function fetchGame(code: string) {
-  return apiFetch<GameSnapshot>(`/api/games/${code}`)
+  return apiFetch<GameSnapshot>(`/api/v1/games/${code}`)
 }
 
 export function joinGame(code: string) {
-  return apiFetch<GameEntry>(`/api/games/${code}/join`, { method: 'POST', headers: JSON_HEADERS })
+  return apiFetch<GameEntry>(`/api/v1/games/${code}/join`, { method: 'POST', headers: JSON_HEADERS })
 }
 
 export async function loadGameSnapshot(code: string): Promise<GameSnapshot> {
@@ -28,5 +28,5 @@ export const WEBSOCKET_BEARER_PROTOCOL = 'bearer'
 
 export function gameSocketUrl(code: string) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
-  return `${protocol}://${window.location.host}/api/games/${code}/ws`
+  return `${protocol}://${window.location.host}/api/v1/games/${code}/ws`
 }

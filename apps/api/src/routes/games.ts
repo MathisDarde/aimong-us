@@ -27,15 +27,20 @@ const CHAT_MAX_LENGTH = 500
 const SEAT_ATTEMPTS = 3
 const PG_UNIQUE_VIOLATION = '23505'
 const PG_CHECK_VIOLATION = '23514'
-const GAME_CREATION_WINDOW_MS = 60_000
+const GAME_ACTION_WINDOW_MS = 60_000
 const GAME_CREATION_MAX = 5
+const GAME_JOIN_MAX = 10
 const CODE_GENERATION_ATTEMPTS = 5
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const isEventRateLimited = createRateLimiter({ max: 5, windowMs: 10_000 })
 const isGameCreationRateLimited = createRateLimiter({
   max: GAME_CREATION_MAX,
-  windowMs: GAME_CREATION_WINDOW_MS,
+  windowMs: GAME_ACTION_WINDOW_MS,
+})
+const isGameJoinRateLimited = createRateLimiter({
+  max: GAME_JOIN_MAX,
+  windowMs: GAME_ACTION_WINDOW_MS,
 })
 
 type ClientEvent = { type: 'chat'; content: string } | { type: 'vote'; targetId: string }
@@ -222,6 +227,9 @@ export const gamesRoutes = new Hono<AuthEnv>()
   })
   .post('/:code/join', requireGameCode, async (c) => {
     const user = c.get('user')
+    if (isGameJoinRateLimited(user.id)) {
+      return c.json({ error: 'Too many join attempts, try again in a minute' }, 429)
+    }
     const game = await findGameByCode(c.req.param('code'))
     if (!game) return c.json({ error: 'Game not found' }, 404)
 
