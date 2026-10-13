@@ -9,12 +9,14 @@ Multiplayer chat game where AIs disguise themselves as humans. Chat, spot the im
 | Front | Vite + React + TypeScript + Tailwind v4 + shadcn/ui (`apps/web`) |
 | API | Hono on Node (`apps/api`) |
 | Database | PostgreSQL on Neon, via Drizzle ORM |
+| Auth | Better Auth (email + password, cookie sessions) |
 
 ## Getting started
 
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env   # then set DATABASE_URL (Neon)
+openssl rand -hex 32                     # paste into BETTER_AUTH_SECRET
 pnpm db:push                             # creates the tables on Neon
 pnpm dev                                 # API :3000 + web :5173
 ```
@@ -33,7 +35,7 @@ In dev the web app proxies `/api/*` to the API, so everything goes through http:
 
 ```
 apps/
-  api/   Hono + Drizzle (schema: games, players, messages, votes)
+  api/   Hono + Drizzle + Better Auth (schema: user, session, account, verification, rate_limit, games, players, messages, votes)
   web/   Vite + React
 ```
 
