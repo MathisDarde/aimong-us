@@ -1,7 +1,9 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Avatar } from '@/components/avatar'
 import { Button } from '@/components/ui/button'
 import { useIsMobile } from '@/hooks/use-is-mobile'
+import { ROUTES } from '@/lib/routes'
 
 const BUNTING = ['#FF5CA8', '#FFD23F', '#43F0B5', '#4FD6FF', '#FF5CA8', '#FFD23F', '#43F0B5']
 
@@ -13,7 +15,6 @@ export function Hero() {
 
   return (
     <section
-      id="play"
       className="mx-auto flex max-w-[1280px] flex-wrap items-center gap-[clamp(32px,5vw,64px)] px-[clamp(16px,4vw,40px)] pt-[clamp(24px,5vw,64px)] pb-[clamp(48px,7vw,96px)]"
     >
       <div className="flex min-w-0 flex-[1_1_440px] flex-col gap-6">
@@ -36,7 +37,9 @@ export function Hero() {
         </p>
 
         <div className="flex flex-wrap items-stretch gap-4 pt-2">
-          <Button size="lg">Create a game</Button>
+          <Button asChild size="lg">
+            <Link to={ROUTES.play}>Create a game</Link>
+          </Button>
 
           <form
             onSubmit={(e) => e.preventDefault()}

@@ -1,6 +1,8 @@
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Avatar, type Disguise } from '@/components/avatar'
 import { Button } from '@/components/ui/button'
+import { ROUTES } from '@/lib/routes'
 import { cn } from '@/lib/utils'
 
 type Msg = {
@@ -89,7 +91,7 @@ export function SpotTheAI() {
               </p>
               <div className="flex flex-wrap gap-3">
                 <Button asChild size="sm">
-                  <a href="#play">Start a real game</a>
+                  <Link to={ROUTES.play}>Start a real game</Link>
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setPicked(null)}>
                   Play again

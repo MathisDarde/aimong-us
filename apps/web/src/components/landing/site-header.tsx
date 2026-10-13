@@ -1,5 +1,7 @@
+import { Link } from 'react-router'
 import { Avatar } from '@/components/avatar'
 import { Button } from '@/components/ui/button'
+import { ROUTES } from '@/lib/routes'
 import { Logo } from './logo'
 
 export function SiteHeader() {
@@ -19,7 +21,7 @@ export function SiteHeader() {
           </a>
         </nav>
         <Button asChild className="px-[22px] py-2.5">
-          <a href="#play">Play</a>
+          <Link to={ROUTES.play}>Play</Link>
         </Button>
       </div>
     </header>
