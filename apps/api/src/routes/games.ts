@@ -19,11 +19,15 @@ import {
   type Player,
 } from '../game-state.js'
 import { requireAuth, type AuthEnv } from '../middleware/auth.js'
+import { createRateLimiter } from '../rate-limit.js'
 import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
 
 const CHAT_MAX_LENGTH = 500
+const MAX_PLAYERS = 10
 const CODE_GENERATION_ATTEMPTS = 5
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const isEventRateLimited = createRateLimiter({ max: 5, windowMs: 10_000 })
 
 type ClientEvent = { type: 'chat'; content: string } | { type: 'vote'; targetId: string }
 
@@ -121,6 +125,10 @@ async function handleVote(game: Game, player: Player, targetId: string, ws: WSCo
 }
 
 async function handleClientMessage(gameId: string, playerId: string, raw: unknown, ws: WSContext) {
+  if (isEventRateLimited(playerId)) {
+    return send(ws, { type: 'error', message: 'Trop de messages, attends quelques secondes' })
+  }
+
   const event = parseClientEvent(raw)
   if (!event) return send(ws, { type: 'error', message: 'Événement invalide' })
 
@@ -159,6 +167,9 @@ export const gamesRoutes = new Hono<AuthEnv>()
     if (existing) return c.json({ state: await loadGameState(game), me: existing.id })
 
     if (game.status !== 'lobby') return c.json({ error: 'La partie a déjà commencé' }, 409)
+    if ((await db.$count(players, eq(players.gameId, game.id))) >= MAX_PLAYERS) {
+      return c.json({ error: 'La partie est complète' }, 409)
+    }
 
     const [inserted] = await db
       .insert(players)
