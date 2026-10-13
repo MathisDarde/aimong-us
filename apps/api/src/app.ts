@@ -2,10 +2,12 @@ import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono, type Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
 import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
+import { requestId } from 'hono/request-id'
 import { secureHeaders } from 'hono/secure-headers'
 import { auth } from './auth.js'
 import { env } from './env.js'
+import { logError } from './logger.js'
+import { accessLog } from './middleware/access-log.js'
 import { gamesRoutes } from './routes/games.js'
 import { health } from './routes/health.js'
 import { me } from './routes/me.js'
@@ -20,7 +22,8 @@ function withClientIp(c: Context): Request {
 }
 
 export const app = new Hono()
-  .use('*', logger())
+  .use('*', requestId())
+  .use('*', accessLog)
   .use('*', secureHeaders())
   .use(
     '/api/*',
@@ -43,9 +46,11 @@ export const app = new Hono()
   .route('/api/health', health)
   .route('/api/me', me)
   .route('/api/games', gamesRoutes)
+  .notFound((c) => c.json({ error: 'Not found' }, 404))
   .onError((err, c) => {
-    console.error(err)
-    return c.json({ error: 'Internal error' }, 500)
+    const id = c.get('requestId')
+    logError('unhandled error', err, { requestId: id, method: c.req.method, path: c.req.path })
+    return c.json({ error: 'Internal error', requestId: id }, 500)
   })
 
 export type AppType = typeof app

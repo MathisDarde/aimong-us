@@ -39,6 +39,11 @@ apps/
   web/   Vite + React
 ```
 
+## Security notes
+
+- Private API routes require an `Authorization: Bearer <jwt>` header (WebSockets send it as the `bearer` subprotocol). Access tokens last 15 minutes and are verified without a database lookup, so a token stays valid until it expires even after sign-out.
+- Server errors never reach the client: unexpected failures answer `500 { error: "Internal error", requestId }`, and the details are written to stderr as one JSON line carrying the same `requestId`. SQL parameters are redacted from those logs.
+
 ## Deployment constraints
 
 Game rooms and online presence live in the API process memory, so the API must run as a single instance until they move to a shared store.

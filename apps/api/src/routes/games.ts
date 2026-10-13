@@ -19,6 +19,7 @@ import {
   type Player,
 } from '../game-state.js'
 import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
+import { logError } from '../logger.js'
 import { createRateLimiter } from '../rate-limit.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { validate } from '../validation.js'
@@ -68,7 +69,7 @@ function parseClientEvent(raw: unknown): ClientEvent | null {
 
 function runSafely(ws: WSContext, task: () => Promise<void>) {
   task().catch((err) => {
-    console.error(err)
+    logError('websocket handler failed', err)
     send(ws, { type: 'error', message: 'Internal error' })
   })
 }

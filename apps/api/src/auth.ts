@@ -5,6 +5,7 @@ import { jwt } from 'better-auth/plugins'
 import { db } from './db/index.js'
 import { account, jwks, rateLimit, session, user, verification } from './db/schema.js'
 import { env } from './env.js'
+import { logError, logInfo, logWarn } from './logger.js'
 
 const NAME_MAX_LENGTH = 32
 const ACCESS_TOKEN_TTL = '15m'
@@ -86,6 +87,14 @@ export const auth = betterAuth({
           return { data: { ...data, name } }
         },
       },
+    },
+  },
+  logger: {
+    level: 'warn',
+    log: (level, message, ...details) => {
+      if (level === 'error') logError(message, details[0])
+      else if (level === 'warn') logWarn(message)
+      else logInfo(message)
     },
   },
   telemetry: { enabled: false },
