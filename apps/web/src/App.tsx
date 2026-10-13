@@ -11,7 +11,8 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path={ROUTES.home} element={<LandingPage />} />
-        <Route path={ROUTES.auth} element={<AuthPage />} />
+        <Route path={ROUTES.login} element={<AuthPage mode="sign-in" />} />
+        <Route path={ROUTES.register} element={<AuthPage mode="sign-up" />} />
         <Route element={<RequireAuth />}>
           <Route path={ROUTES.play} element={<PlayPage />} />
           <Route path={ROUTES.game} element={<GamePage />} />

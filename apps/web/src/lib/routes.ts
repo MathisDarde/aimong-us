@@ -1,6 +1,7 @@
 export const ROUTES = {
   home: '/',
-  auth: '/auth',
+  login: '/login',
+  register: '/register',
   play: '/play',
   game: '/game/:code',
 } as const
