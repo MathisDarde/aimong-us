@@ -1,0 +1,25 @@
+{
+  "name": "aimong-us",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm run dev -w @aimong-us/api\" \"npm run dev -w @aimong-us/web\"",
+    "dev:api": "npm run dev -w @aimong-us/api",
+    "dev:web": "npm run dev -w @aimong-us/web",
+    "build": "npm run build --workspaces",
+    "db:generate": "npm run db:generate -w @aimong-us/api",
+    "db:migrate": "npm run db:migrate -w @aimong-us/api",
+    "db:push": "npm run db:push -w @aimong-us/api",
+    "db:studio": "npm run db:studio -w @aimong-us/api"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
