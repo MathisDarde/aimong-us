@@ -7,7 +7,6 @@ import { db } from '../db/index.js'
 import { MAX_PLAYERS, games, messages, players, votes } from '../db/schema.js'
 import { env } from '../env.js'
 import {
-  GAME_CODE_REGEX,
   findGameByCode,
   findGameById,
   findPlayer,
@@ -21,16 +20,16 @@ import {
 } from '../game-state.js'
 import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { createRateLimiter } from '../rate-limit.js'
+import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
+import { validate } from '../validation.js'
 import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
 
-const CHAT_MAX_LENGTH = 500
 const SEAT_ATTEMPTS = 3
 const PG_UNIQUE_VIOLATION = '23505'
 const PG_CHECK_VIOLATION = '23514'
 const GAME_CREATION_WINDOW_MS = 60_000
 const GAME_CREATION_MAX = 5
 const CODE_GENERATION_ATTEMPTS = 5
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const isEventRateLimited = createRateLimiter({ max: 5, windowMs: 10_000 })
 const isGameCreationRateLimited = createRateLimiter({
@@ -38,21 +37,12 @@ const isGameCreationRateLimited = createRateLimiter({
   windowMs: GAME_CREATION_WINDOW_MS,
 })
 
-type ClientEvent = { type: 'chat'; content: string } | { type: 'vote'; targetId: string }
-
 type PlayerEnv = {
   Variables: AuthEnv['Variables'] & { game: Game; player: Player }
 }
 
 const requireSameOrigin = createMiddleware(async (c, next) => {
   if (c.req.header('origin') !== env.WEB_ORIGIN) return c.json({ error: 'Origin not allowed' }, 403)
-  await next()
-})
-
-const requireGameCode = createMiddleware(async (c, next) => {
-  if (!GAME_CODE_REGEX.test(c.req.param('code') ?? '')) {
-    return c.json({ error: 'Invalid game code' }, 400)
-  }
   await next()
 })
 
@@ -69,14 +59,8 @@ const requirePlayer = createMiddleware<PlayerEnv>(async (c, next) => {
 function parseClientEvent(raw: unknown): ClientEvent | null {
   if (typeof raw !== 'string') return null
   try {
-    const data = JSON.parse(raw)
-    if (data?.type === 'chat' && typeof data.content === 'string') {
-      return { type: 'chat', content: data.content }
-    }
-    if (data?.type === 'vote' && typeof data.targetId === 'string' && UUID_REGEX.test(data.targetId)) {
-      return { type: 'vote', targetId: data.targetId }
-    }
-    return null
+    const result = clientEventSchema.safeParse(JSON.parse(raw))
+    return result.success ? result.data : null
   } catch {
     return null
   }
@@ -89,20 +73,12 @@ function runSafely(ws: WSContext, task: () => Promise<void>) {
   })
 }
 
-async function handleChat(game: Game, player: Player, rawContent: string, ws: WSContext) {
+async function handleChat(game: Game, player: Player, content: string, ws: WSContext) {
   if (game.status === 'finished') {
     return send(ws, { type: 'error', message: 'The game is over' })
   }
   if (player.isEliminated) {
     return send(ws, { type: 'error', message: 'Eliminated players cannot chat' })
-  }
-
-  const content = rawContent.trim()
-  if (!content || content.length > CHAT_MAX_LENGTH) {
-    return send(ws, {
-      type: 'error',
-      message: `Message must be between 1 and ${CHAT_MAX_LENGTH} characters`,
-    })
   }
 
   const [message] = await db
@@ -220,7 +196,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
 
     throw new Error('Could not generate a unique game code')
   })
-  .post('/:code/join', requireGameCode, async (c) => {
+  .post('/:code/join', validate('param', gameCodeParam), async (c) => {
     const user = c.get('user')
     const game = await findGameByCode(c.req.param('code'))
     if (!game) return c.json({ error: 'Game not found' }, 404)
@@ -240,7 +216,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
     }
     return c.json({ state: await loadGameState(game), me: player.id }, created ? 201 : 200)
   })
-  .get('/:code', requireGameCode, async (c) => {
+  .get('/:code', validate('param', gameCodeParam), async (c) => {
     const game = await findGameByCode(c.req.param('code'))
     if (!game) return c.json({ error: 'Game not found' }, 404)
 
@@ -253,7 +229,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
   })
   .get(
     '/:code/ws',
-    requireGameCode,
+    validate('param', gameCodeParam),
     requireSameOrigin,
     requirePlayer,
     upgradeWebSocket((c) => {
