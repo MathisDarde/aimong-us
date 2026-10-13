@@ -15,7 +15,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       // Les appels /api/* sont redirigés vers le serveur Hono en dev
-      '/api': 'http://localhost:3000',
+      '/api': { target: 'http://localhost:3000', ws: true },
     },
   },
 })

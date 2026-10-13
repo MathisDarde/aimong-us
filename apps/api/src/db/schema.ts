@@ -137,17 +137,21 @@ export const messages = pgTable('messages', {
 })
 
 /** Votes d'élimination, un par joueur et par manche */
-export const votes = pgTable('votes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  gameId: uuid('game_id')
-    .notNull()
-    .references(() => games.id, { onDelete: 'cascade' }),
-  round: integer('round').notNull(),
-  voterId: uuid('voter_id')
-    .notNull()
-    .references(() => players.id, { onDelete: 'cascade' }),
-  targetId: uuid('target_id')
-    .notNull()
-    .references(() => players.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const votes = pgTable(
+  'votes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    round: integer('round').notNull(),
+    voterId: uuid('voter_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    targetId: uuid('target_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('votes_game_round_voter_unique').on(t.gameId, t.round, t.voterId)],
+)
