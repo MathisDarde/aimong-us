@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
-import { signIn, signUp } from '@/lib/auth-client'
+import { clearAccessToken, signIn, signUp } from '@/lib/auth-client'
 import { ROUTES } from '@/lib/routes'
 import { AuthField } from './auth-field'
 
@@ -42,6 +42,7 @@ export function AuthForm() {
 
     setPending(true)
     setError(null)
+    clearAccessToken()
     const { error: authError } =
       mode === 'sign-up'
         ? await signUp.email({ name: String(form.get('name')), email, password })

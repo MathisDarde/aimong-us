@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { gameSocketUrl, loadGameSnapshot } from '@/lib/game-api'
+import { getAccessToken } from '@/lib/auth-client'
+import { WEBSOCKET_BEARER_PROTOCOL, gameSocketUrl, loadGameSnapshot } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
 
 export type RoomStatus = 'loading' | 'live' | 'disconnected' | 'error'
@@ -66,7 +67,9 @@ export function useGameRoom(code: string) {
         setMessages(snapshot.messages)
         setMe(snapshot.me)
 
-        const socket = new WebSocket(gameSocketUrl(code))
+        const token = await getAccessToken()
+        if (cancelled) return
+        const socket = new WebSocket(gameSocketUrl(code), [WEBSOCKET_BEARER_PROTOCOL, token])
         socketRef.current = socket
         socket.onopen = () => setStatus('live')
         socket.onclose = () => {

@@ -24,6 +24,8 @@ export async function loadGameSnapshot(code: string): Promise<GameSnapshot> {
   return fetchGame(code)
 }
 
+export const WEBSOCKET_BEARER_PROTOCOL = 'bearer'
+
 export function gameSocketUrl(code: string) {
   const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws'
   return `${protocol}://${window.location.host}/api/games/${code}/ws`

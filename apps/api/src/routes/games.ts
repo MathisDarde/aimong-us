@@ -19,8 +19,7 @@ import {
   type Game,
   type Player,
 } from '../game-state.js'
-import type { AuthUser } from '../auth.js'
-import { requireAuth, type AuthEnv } from '../middleware/auth.js'
+import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { createRateLimiter } from '../rate-limit.js'
 import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
 
