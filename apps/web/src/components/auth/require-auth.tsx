@@ -6,6 +6,6 @@ export function RequireAuth() {
   const { data: session, isPending } = useSession()
 
   if (isPending) return null
-  if (!session) return <Navigate to={ROUTES.auth} replace />
+  if (!session) return <Navigate to={ROUTES.login} replace />
   return <Outlet />
 }

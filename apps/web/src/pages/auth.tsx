@@ -1,10 +1,10 @@
 import { Link, Navigate } from 'react-router'
-import { AuthForm } from '@/components/auth/auth-form'
+import { AuthForm, type AuthMode } from '@/components/auth/auth-form'
 import { Logo } from '@/components/landing/logo'
 import { useSession } from '@/lib/auth-client'
 import { ROUTES } from '@/lib/routes'
 
-export function AuthPage() {
+export function AuthPage({ mode }: { mode: AuthMode }) {
   const { data: session, isPending } = useSession()
 
   if (isPending) return null
@@ -15,7 +15,7 @@ export function AuthPage() {
       <Link to={ROUTES.home}>
         <Logo className="text-[32px]" />
       </Link>
-      <AuthForm />
+      <AuthForm key={mode} mode={mode} />
     </main>
   )
 }

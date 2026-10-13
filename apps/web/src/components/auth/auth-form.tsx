@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { Button } from '@/components/ui/button'
 import { clearAccessToken, signIn, signUp } from '@/lib/auth-client'
 import { ROUTES } from '@/lib/routes'
@@ -10,26 +10,30 @@ const PASSWORD_MIN_LENGTH = 10
 const PASSWORD_MAX_LENGTH = 128
 const FALLBACK_ERROR = 'Something went wrong, please try again.'
 
-type Mode = 'sign-in' | 'sign-up'
+export type AuthMode = 'sign-in' | 'sign-up'
 
-const COPY: Record<Mode, { title: string; submit: string; switchPrompt: string; switchAction: string }> = {
+const COPY: Record<
+  AuthMode,
+  { title: string; submit: string; switchPrompt: string; switchAction: string; switchTo: string }
+> = {
   'sign-in': {
     title: 'Welcome back',
     submit: 'Sign in',
     switchPrompt: 'New here?',
     switchAction: 'Create an account',
+    switchTo: ROUTES.register,
   },
   'sign-up': {
     title: 'Join the party',
     submit: 'Sign up',
     switchPrompt: 'Already have an account?',
     switchAction: 'Sign in',
+    switchTo: ROUTES.login,
   },
 }
 
-export function AuthForm() {
+export function AuthForm({ mode }: { mode: AuthMode }) {
   const navigate = useNavigate()
-  const [mode, setMode] = useState<Mode>('sign-in')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const copy = COPY[mode]
@@ -54,11 +58,6 @@ export function AuthForm() {
       return
     }
     await navigate(ROUTES.play, { replace: true })
-  }
-
-  function toggleMode() {
-    setMode(mode === 'sign-in' ? 'sign-up' : 'sign-in')
-    setError(null)
   }
 
   return (
@@ -98,13 +97,9 @@ export function AuthForm() {
 
       <p className="m-0 text-center text-sm">
         {copy.switchPrompt}{' '}
-        <button
-          type="button"
-          onClick={toggleMode}
-          className="cursor-pointer border-0 bg-transparent p-0 font-semibold text-menthe underline"
-        >
+        <Link to={copy.switchTo} className="font-semibold text-menthe underline">
           {copy.switchAction}
-        </button>
+        </Link>
       </p>
     </form>
   )
