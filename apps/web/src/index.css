@@ -3,7 +3,6 @@
 @import "@fontsource-variable/fredoka";
 @import "@fontsource-variable/figtree";
 
-/* Design system « Among AIs » : nuit + 4 néons, contours épais, ombres dures */
 @theme {
   --color-nuit: #241c5c;
   --color-nuit-400: #3a2f86;
@@ -18,7 +17,6 @@
   --font-sans: "Figtree Variable", ui-sans-serif, system-ui, sans-serif;
 }
 
-/* Variables shadcn mappées sur la palette */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
