@@ -1,11 +1,13 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError } from 'better-auth/api'
+import { jwt } from 'better-auth/plugins'
 import { db } from './db/index.js'
-import { account, rateLimit, session, user, verification } from './db/schema.js'
+import { account, jwks, rateLimit, session, user, verification } from './db/schema.js'
 import { env } from './env.js'
 
 const NAME_MAX_LENGTH = 32
+const ACCESS_TOKEN_TTL = '15m'
 
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
@@ -14,8 +16,17 @@ export const auth = betterAuth({
   trustedOrigins: [env.WEB_ORIGIN],
   database: drizzleAdapter(db, {
     provider: 'pg',
-    schema: { user, session, account, verification, rateLimit },
+    schema: { user, session, account, verification, jwks, rateLimit },
   }),
+  plugins: [
+    jwt({
+      jwt: {
+        expirationTime: ACCESS_TOKEN_TTL,
+        definePayload: ({ user }) => ({ name: user.name }),
+      },
+      disableSettingJwtHeader: true,
+    }),
+  ],
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 10,
@@ -79,6 +90,3 @@ export const auth = betterAuth({
   },
   telemetry: { enabled: false },
 })
-
-export type AuthUser = typeof auth.$Infer.Session.user
-export type AuthSession = typeof auth.$Infer.Session.session

@@ -1,3 +1,5 @@
+import { clearAccessToken, getAccessToken } from '@/lib/auth-client'
+
 const FALLBACK_ERROR = 'Something went wrong, please try again.'
 
 export class ApiError extends Error {
@@ -17,8 +19,13 @@ function errorMessage(body: unknown): string {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init)
+  const token = await getAccessToken()
+  const response = await fetch(path, {
+    ...init,
+    headers: { ...init?.headers, Authorization: `Bearer ${token}` },
+  })
   const body: unknown = await response.json().catch(() => null)
+  if (response.status === 401) clearAccessToken()
   if (!response.ok) throw new ApiError(errorMessage(body), response.status)
   return body as T
 }
