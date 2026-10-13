@@ -39,10 +39,15 @@ export const app = new Hono()
       onError: (c) => c.json({ error: 'Request too large' }, 413),
     }),
   )
-  .on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(withClientIp(c)))
-  .route('/api/health', health)
-  .route('/api/me', me)
-  .route('/api/games', gamesRoutes)
+  .use('/api/*', async (c, next) => {
+    await next()
+    c.header('Cache-Control', 'no-store')
+  })
+  .on(['GET', 'POST'], '/api/v1/auth/*', (c) => auth.handler(withClientIp(c)))
+  .route('/api/v1/health', health)
+  .route('/api/v1/me', me)
+  .route('/api/v1/games', gamesRoutes)
+  .notFound((c) => c.json({ error: 'Route not found' }, 404))
   .onError((err, c) => {
     console.error(err)
     return c.json({ error: 'Internal error' }, 500)

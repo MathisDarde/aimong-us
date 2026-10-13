@@ -12,7 +12,7 @@ const ACCESS_TOKEN_TTL = '15m'
 export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   baseURL: env.BETTER_AUTH_URL,
-  basePath: '/api/auth',
+  basePath: '/api/v1/auth',
   trustedOrigins: [env.WEB_ORIGIN],
   database: drizzleAdapter(db, {
     provider: 'pg',

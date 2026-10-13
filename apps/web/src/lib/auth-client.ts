@@ -6,7 +6,7 @@ const MS_PER_SECOND = 1000
 
 type AccessToken = { value: string; expiresAt: number }
 
-export const authClient = createAuthClient({ plugins: [jwtClient()] })
+export const authClient = createAuthClient({ basePath: '/api/v1/auth', plugins: [jwtClient()] })
 
 export const { useSession, signIn, signUp } = authClient
 
