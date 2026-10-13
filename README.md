@@ -1,43 +1,52 @@
 # Aimong Us
 
-Chat multijoueur où des IA se font passer pour des humains. Discutez, repérez les imposteurs et votez pour les éliminer.
+Multiplayer chat game where AIs disguise themselves as humans. Chat, spot the impostors and vote them out.
 
 ## Stack
 
-| Partie | Techno |
+| Part | Tech |
 | --- | --- |
-| Front | Vite + React + TypeScript (`apps/web`) |
-| API | Hono sur Node (`apps/api`) |
-| Base de données | PostgreSQL sur Neon, via Drizzle ORM |
+| Front | Vite + React + TypeScript + Tailwind v4 + shadcn/ui (`apps/web`) |
+| API | Hono on Node (`apps/api`) |
+| Database | PostgreSQL on Neon, via Drizzle ORM |
 
-## Démarrage
+## Getting started
 
 ```bash
-npm install
-cp apps/api/.env.example apps/api/.env   # puis renseigner DATABASE_URL (Neon)
-npm run db:push                          # crée les tables sur Neon
-npm run dev                              # API :3000 + front :5173
+pnpm install
+cp apps/api/.env.example apps/api/.env   # then set DATABASE_URL (Neon)
+pnpm db:push                             # creates the tables on Neon
+pnpm dev                                 # API :3000 + web :5173
 ```
 
-Le front proxifie `/api/*` vers l'API en dev, donc tout passe par http://localhost:5173.
+In dev the web app proxies `/api/*` to the API, so everything goes through http://localhost:5173.
 
 ## Scripts
 
-- `npm run dev` : lance l'API et le front en parallèle
-- `npm run build` : build de tous les workspaces
-- `npm run db:generate` / `db:migrate` : migrations Drizzle
-- `npm run db:push` : synchronise le schéma directement (pratique en dev)
-- `npm run db:studio` : interface Drizzle Studio
+- `pnpm dev`: run the API and the web app in parallel
+- `pnpm build`: build all workspaces
+- `pnpm db:generate` / `db:migrate`: Drizzle migrations
+- `pnpm db:push`: sync the schema directly (handy in dev)
+- `pnpm db:studio`: Drizzle Studio
 
 ## Structure
 
 ```
 apps/
-  api/   Hono + Drizzle (schéma : games, players, messages, votes)
+  api/   Hono + Drizzle (schema: games, players, messages, votes)
   web/   Vite + React
 ```
 
 ## Branches
 
-- `main` : version stable
-- `dev` : intégration, les features partent de là
+- `main`: stable
+- `dev`: integration, features start from here
+
+## UI (shadcn/ui)
+
+Components live in `apps/web/src/components/ui`. To add one:
+
+```bash
+cd apps/web
+pnpm dlx shadcn@latest add dialog
+```

@@ -3,23 +3,21 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "workspaces": [
-    "apps/*"
-  ],
   "scripts": {
-    "dev": "concurrently -n api,web -c magenta,cyan \"npm run dev -w @aimong-us/api\" \"npm run dev -w @aimong-us/web\"",
-    "dev:api": "npm run dev -w @aimong-us/api",
-    "dev:web": "npm run dev -w @aimong-us/web",
-    "build": "npm run build --workspaces",
-    "db:generate": "npm run db:generate -w @aimong-us/api",
-    "db:migrate": "npm run db:migrate -w @aimong-us/api",
-    "db:push": "npm run db:push -w @aimong-us/api",
-    "db:studio": "npm run db:studio -w @aimong-us/api"
+    "dev": "concurrently -n api,web -c magenta,cyan \"pnpm --filter @aimong-us/api dev\" \"pnpm --filter @aimong-us/web dev\"",
+    "dev:api": "pnpm --filter @aimong-us/api dev",
+    "dev:web": "pnpm --filter @aimong-us/web dev",
+    "build": "pnpm -r build",
+    "db:generate": "pnpm --filter @aimong-us/api db:generate",
+    "db:migrate": "pnpm --filter @aimong-us/api db:migrate",
+    "db:push": "pnpm --filter @aimong-us/api db:push",
+    "db:studio": "pnpm --filter @aimong-us/api db:studio"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }
