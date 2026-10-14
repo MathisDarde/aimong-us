@@ -33,6 +33,7 @@ import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { logError } from '../logger.js'
 import { pickNickname } from '../nicknames.js'
 import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
+import { scheduleAiLobbyReply } from '../ai-lobby.js'
 import { postMessage } from '../chat.js'
 import { createRateLimiter } from '../rate-limit.js'
 import { toggleReaction } from '../reactions.js'
@@ -107,7 +108,15 @@ async function handleChat(game: Game, player: Player, content: string, ws: WSCon
     return send(ws, { type: 'error', message: 'Eliminated players cannot chat' })
   }
 
-  if (game.status !== 'playing') return postMessage(game, player, content)
+  if (game.status !== 'playing') {
+    await postMessage(game, player, content)
+    if (game.status === 'lobby') {
+      scheduleAiLobbyReply(game).catch((err) =>
+        logError('AI lobby reply failed', err, { gameId: game.id }),
+      )
+    }
+    return
+  }
 
   const claimed =
     currentTurnPlayerId(game) === player.id ? await advanceTurn(game.id, player.id) : undefined

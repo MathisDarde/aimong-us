@@ -10,7 +10,7 @@ export const REACTION_EMOJIS = ['👍', '😂', '😮', '🤔', '🤖'] as const
 
 export type MessageReaction = { emoji: string; playerIds: string[] }
 
-const AI_REACTION_CHANCE_PERCENT = 10
+const AI_REACTION_CHANCE_PERCENT = 15
 const AI_REACTION_MIN_DELAY_MS = 1_500
 const AI_REACTION_MAX_DELAY_MS = 6_000
 const PERCENT = 100

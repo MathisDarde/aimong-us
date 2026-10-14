@@ -16,7 +16,7 @@ export async function postMessage(game: Game, player: Player, content: string) {
       createdAt: messages.createdAt,
     })
   broadcast(game.id, { type: 'chat', message })
-  if (game.status === 'playing' || game.status === 'voting') {
+  if (game.status === 'lobby' || game.status === 'playing' || game.status === 'voting') {
     scheduleAiReactions(game, message).catch((err) =>
       logError('AI reactions scheduling failed', err, { gameId: game.id }),
     )
