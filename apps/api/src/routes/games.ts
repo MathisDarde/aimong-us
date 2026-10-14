@@ -35,6 +35,7 @@ import { logError } from '../logger.js'
 import { pickNickname } from '../nicknames.js'
 import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
 import { createRateLimiter } from '../rate-limit.js'
+import { scheduleAiReactions, toggleReaction } from '../reactions.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { advanceTurn, beginRound, clearTurnTimer, ensureTurnTimer, publishTurnChange } from '../turns.js'
 import { validate } from '../validation.js'
@@ -55,6 +56,7 @@ const CODE_GENERATION_ATTEMPTS = 5
 
 const isEventRateLimited = createRateLimiter({ max: 5, windowMs: 10_000 })
 const isTypingRateLimited = createRateLimiter({ max: 8, windowMs: 10_000 })
+const isReactionRateLimited = createRateLimiter({ max: 10, windowMs: 10_000 })
 const isGameCreationRateLimited = createRateLimiter({
   max: GAME_CREATION_MAX,
   windowMs: GAME_CREATION_WINDOW_MS,
@@ -125,6 +127,27 @@ async function postMessage(game: Game, player: Player, content: string) {
       createdAt: messages.createdAt,
     })
   broadcast(game.id, { type: 'chat', message })
+  if (game.status === 'playing' || game.status === 'voting') {
+    scheduleAiReactions(game, message).catch((err) =>
+      logError('AI reactions scheduling failed', err, { gameId: game.id }),
+    )
+  }
+}
+
+async function handleReact(
+  game: Game,
+  player: Player,
+  messageId: string,
+  emoji: string,
+  ws: WSContext,
+) {
+  if (game.status === 'finished') return send(ws, { type: 'error', message: 'The game is over' })
+  if (player.isEliminated) {
+    return send(ws, { type: 'error', message: 'Eliminated players cannot react' })
+  }
+  if ((await toggleReaction(game.id, messageId, player.id, emoji)) === 'message_not_found') {
+    send(ws, { type: 'error', message: 'Message not found' })
+  }
 }
 
 async function handleVote(game: Game, player: Player, targetId: string, ws: WSContext) {
@@ -164,7 +187,9 @@ async function handleClientMessage(gameId: string, playerId: string, raw: unknow
     return
   }
 
-  if (isEventRateLimited(playerId)) {
+  const limited =
+    event?.type === 'react' ? isReactionRateLimited(playerId) : isEventRateLimited(playerId)
+  if (limited) {
     return send(ws, { type: 'error', message: 'Too many messages, wait a few seconds' })
   }
 
@@ -175,6 +200,7 @@ async function handleClientMessage(gameId: string, playerId: string, raw: unknow
   const { game, player } = found
 
   if (event.type === 'chat') return handleChat(game, player, event.content, ws)
+  if (event.type === 'react') return handleReact(game, player, event.messageId, event.emoji, ws)
   return handleVote(game, player, event.targetId, ws)
 }
 
