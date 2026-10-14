@@ -14,6 +14,7 @@ export type GameState = {
   minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
+  turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 
 export type MessageReaction = { emoji: string; playerIds: string[] }
@@ -46,9 +47,11 @@ export type ServerEvent =
   | { type: 'player_joined'; player: PublicPlayer }
   | { type: 'player_left'; playerId: string }
   | { type: 'game_state'; state: GameState }
+  | { type: 'typing'; playerId: string }
   | { type: 'error'; message: string }
 
 export type ClientEvent =
   | { type: 'chat'; content: string }
   | { type: 'vote'; targetId: string }
+  | { type: 'typing' }
   | { type: 'react'; messageId: string; emoji: string }

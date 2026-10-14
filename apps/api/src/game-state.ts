@@ -20,6 +20,7 @@ export type GameState = {
   minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
+  turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -59,6 +60,11 @@ export async function findPlayer(gameId: string, userId: string): Promise<Player
   })
 }
 
+export function currentTurnPlayerId(game: Game): string | null {
+  if (game.status !== 'playing') return null
+  return game.turnOrder[game.turnIndex] ?? null
+}
+
 export function toPublicPlayer(player: Player, online: boolean): PublicPlayer {
   return {
     id: player.id,
@@ -94,6 +100,11 @@ export async function loadGameState(game: Game): Promise<GameState> {
     minPlayersToStart: MIN_PLAYERS,
     maxPlayers: game.status === 'lobby' ? MAX_HUMANS : MAX_PLAYERS,
     votedPlayerIds: roundVotes.map((vote) => vote.voterId),
+    turn: {
+      playerId: currentTurnPlayerId(game),
+      index: game.turnIndex,
+      endsInMs: game.turnDeadline ? Math.max(0, game.turnDeadline.getTime() - Date.now()) : null,
+    },
   }
 }
 
