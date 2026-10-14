@@ -13,6 +13,7 @@ type ChatPanelProps = {
   players: PublicPlayer[]
   meId: string | null
   canSend: boolean
+  canReact: boolean
   closedReason: string
   typingNames: string[]
   onSend: (content: string) => void
@@ -25,6 +26,7 @@ export function ChatPanel({
   players,
   meId,
   canSend,
+  canReact,
   closedReason,
   typingNames,
   onSend,
@@ -86,7 +88,7 @@ export function ChatPanel({
               <ReactionBar
                 reactions={message.reactions ?? []}
                 meId={meId}
-                disabled={!canSend}
+                disabled={!canReact}
                 pickerOpen={pickerMessageId === message.id}
                 onTogglePicker={() =>
                   setPickerMessageId(pickerMessageId === message.id ? null : message.id)

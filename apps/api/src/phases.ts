@@ -2,15 +2,16 @@ import { randomInt } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
 import { games, players } from './db/schema.js'
-import { requestAiReply } from './ai-replies.js'
+import { requestAiReply, typingDelayMs } from './ai-replies.js'
 import { postMessage } from './chat.js'
-import { currentTurnPlayerId, loadGameState, type Game } from './game-state.js'
+import { currentTurnPlayerId, loadGameState, type Game, type Player } from './game-state.js'
 import { logError } from './logger.js'
 import { broadcast } from './rooms.js'
 import { TURN_DURATION_MS } from './rules.js'
 import { advanceTurn } from './turns.js'
 import { advanceFromResults, castAiVote, everyoneVoted, resolveVoting } from './voting.js'
 
+const AI_TURN_SAFETY_MARGIN_MS = 3_000
 const AI_TURN_MIN_DELAY_MS = 2_000
 const AI_TURN_MAX_DELAY_MS = 8_000
 const AI_VOTE_MIN_DELAY_MS = 2_000
@@ -24,6 +25,7 @@ export function clearPhaseTimer(gameId: string) {
 }
 
 function armPhaseTimer(game: Game, delayMs: number, task: () => Promise<void>) {
+  clearTimeout(phaseTimers.get(game.id))
   phaseTimers.set(
     game.id,
     setTimeout(() => {
@@ -48,21 +50,35 @@ async function scheduleTurn(game: Game) {
   const remaining = remainingMs(game, TURN_DURATION_MS)
   const speaker = await db.query.players.findFirst({ where: eq(players.id, playerId) })
 
-  let delayMs = remaining
-  let aiReply: Promise<string | null> | null = null
-  if (speaker?.isAi) {
-    delayMs = Math.min(remaining, randomInt(AI_TURN_MIN_DELAY_MS, AI_TURN_MAX_DELAY_MS + 1))
-    aiReply = requestAiReply(game, speaker)
-    broadcast(game.id, { type: 'typing', playerId })
+  if (speaker?.isAi) return scheduleAiTurn(game, speaker, remaining)
+
+  armPhaseTimer(game, remaining, async () => {
+    const advanced = await advanceTurn(game.id, playerId)
+    if (advanced) await publishPhaseChange(advanced)
+  })
+}
+
+async function scheduleAiTurn(game: Game, ai: Player, remaining: number) {
+  const finishTurn = async (reply: string | null) => {
+    const advanced = await advanceTurn(game.id, ai.id)
+    if (!advanced) return
+    if (reply) await postMessage(game, ai, reply)
+    await publishPhaseChange(advanced)
   }
 
-  armPhaseTimer(game, delayMs, async () => {
-    const reply = aiReply ? await aiReply : null
-    const advanced = await advanceTurn(game.id, playerId)
-    if (!advanced) return
-    if (reply && speaker) await postMessage(game, speaker, reply)
-    await publishPhaseChange(advanced)
-  })
+  broadcast(game.id, { type: 'typing', playerId: ai.id })
+  armPhaseTimer(game, remaining, () => finishTurn(null))
+
+  const startedAt = Date.now()
+  const reply = await requestAiReply(game, ai)
+  if (!phaseTimers.has(game.id)) return
+
+  const typingMs = reply
+    ? typingDelayMs(reply)
+    : randomInt(AI_TURN_MIN_DELAY_MS, AI_TURN_MAX_DELAY_MS + 1)
+  const elapsedMs = Date.now() - startedAt
+  const waitMs = Math.max(0, Math.min(typingMs - elapsedMs, remaining - AI_TURN_SAFETY_MARGIN_MS - elapsedMs))
+  armPhaseTimer(game, waitMs, () => finishTurn(reply))
 }
 
 async function scheduleVoting(game: Game) {
