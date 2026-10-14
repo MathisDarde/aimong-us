@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { getAccessToken } from '@/lib/auth-client'
 import { ApiError } from '@/lib/api'
-import { WEBSOCKET_BEARER_PROTOCOL, fetchGame, gameSocketUrl, loadGameSnapshot } from '@/lib/game-api'
+import {
+  WEBSOCKET_BEARER_PROTOCOL,
+  fetchGame,
+  gameSocketUrl,
+  loadGameSnapshot,
+  startGame,
+} from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
 
 const MAX_RECONNECT_ATTEMPTS = 8
@@ -141,5 +147,15 @@ export function useGameRoom(code: string) {
     socket.send(JSON.stringify(event))
   }, [])
 
-  return { state, messages, me, status, error, notice, send }
+  const start = useCallback(async () => {
+    setNotice(null)
+    try {
+      const { state: startedState } = await startGame(code)
+      setState(startedState)
+    } catch (err) {
+      setNotice(err instanceof ApiError ? err.message : 'Could not start the game')
+    }
+  }, [code])
+
+  return { state, messages, me, status, error, notice, send, start }
 }

@@ -28,7 +28,7 @@ export function GamePage() {
 }
 
 function GameRoom({ code }: { code: string }) {
-  const { state, messages, me, status, error, notice, send } = useGameRoom(code)
+  const { state, messages, me, status, error, notice, send, start } = useGameRoom(code)
 
   if (status === 'error') {
     return (
@@ -50,6 +50,8 @@ function GameRoom({ code }: { code: string }) {
   const live = status === 'live'
   const canChat = live && state.game.status !== 'finished' && !myPlayer?.isEliminated
   const canVote = live && state.game.status === 'voting' && !myPlayer?.isEliminated
+  const isHostInLobby = state.game.status === 'lobby' && state.hostId === me
+  const hasEnoughPlayers = state.players.length >= state.minPlayersToStart
 
   return (
     <div className="min-h-svh bg-nuit px-[clamp(16px,4vw,40px)] py-5">
@@ -77,6 +79,18 @@ function GameRoom({ code }: { code: string }) {
             canVote={canVote}
             onVote={(targetId) => send({ type: 'vote', targetId })}
           />
+          {isHostInLobby && (
+            <div className="flex flex-col gap-2">
+              <Button onClick={start} disabled={!live || !hasEnoughPlayers}>
+                Start game
+              </Button>
+              {!hasEnoughPlayers && (
+                <p className="m-0 text-sm opacity-80">
+                  Waiting for at least {state.minPlayersToStart} players.
+                </p>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="flex min-w-0 flex-[2_1_420px] flex-col gap-3">

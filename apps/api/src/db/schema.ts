@@ -105,7 +105,12 @@ export const rateLimit = pgTable('rate_limit', {
   lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
 })
 
-export const MAX_PLAYERS = 10
+export const MAX_PLAYERS = 6
+export const MIN_PLAYERS = 4
+export const MIN_AIS = 1
+export const MAX_AIS = 2
+export const MAX_HUMANS = MAX_PLAYERS - MIN_AIS
+export const MIN_HUMANS = MIN_PLAYERS - MAX_AIS
 
 export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'finished'])
 
@@ -137,6 +142,7 @@ export const players = pgTable(
     unique('players_game_user_unique').on(t.gameId, t.userId),
     unique('players_game_seat_unique').on(t.gameId, t.seat),
     check('players_seat_range', sql`${t.seat} between 1 and ${sql.raw(String(MAX_PLAYERS))}`),
+    check('players_human_seat_range', sql`${t.isAi} or ${t.seat} <= ${sql.raw(String(MAX_HUMANS))}`),
   ],
 )
 

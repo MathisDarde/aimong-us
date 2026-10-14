@@ -3,10 +3,12 @@ import { and, eq, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
+import { drawAiCount, pickAiNicknames } from '../ai-players.js'
 import { db } from '../db/index.js'
-import { MAX_PLAYERS, games, messages, players, votes } from '../db/schema.js'
+import { MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from '../db/schema.js'
 import { env } from '../env.js'
 import {
+  HOST_SEAT,
   findGameByCode,
   findGameById,
   findPlayer,
@@ -146,6 +148,37 @@ function pgErrorCode(err: unknown): string | undefined {
   return 'cause' in err ? pgErrorCode(err.cause) : undefined
 }
 
+async function seatAiPlayers(game: Game): Promise<Game | 'not_enough_players' | 'conflict'> {
+  const humans = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
+  if (humans.length < MIN_HUMANS) return 'not_enough_players'
+
+  const nicknames = pickAiNicknames(
+    drawAiCount(humans.length),
+    humans.map((human) => human.nickname),
+  )
+  try {
+    const [[started]] = await db.batch([
+      db
+        .update(games)
+        .set({ status: 'playing', round: 1 })
+        .where(and(eq(games.id, game.id), eq(games.status, 'lobby')))
+        .returning(),
+      db.insert(players).values(
+        nicknames.map((nickname, index) => ({
+          gameId: game.id,
+          nickname,
+          isAi: true,
+          seat: humans.length + index + 1,
+        })),
+      ),
+    ])
+    return started ?? 'conflict'
+  } catch (err) {
+    if (pgErrorCode(err) === PG_UNIQUE_VIOLATION) return 'conflict'
+    throw err
+  }
+}
+
 async function seatPlayer(
   game: Game,
   user: AuthUser,
@@ -216,6 +249,25 @@ export const gamesRoutes = new Hono<AuthEnv>()
       broadcast(game.id, { type: 'player_joined', player: toPublicPlayer(player, online) })
     }
     return c.json({ state: await loadGameState(game), me: player.id }, created ? 201 : 200)
+  })
+  .post('/:code/start', validate('param', gameCodeParam), requirePlayer, async (c) => {
+    const game = c.get('game')
+    if (c.get('player').seat !== HOST_SEAT) {
+      return c.json({ error: 'Only the host can start the game' }, 403)
+    }
+    if (game.status !== 'lobby') return c.json({ error: 'The game has already started' }, 409)
+
+    const started = await seatAiPlayers(game)
+    if (started === 'not_enough_players') {
+      return c.json({ error: `At least ${MIN_HUMANS} players are needed to start` }, 409)
+    }
+    if (started === 'conflict') {
+      return c.json({ error: 'The lobby changed, try again' }, 409)
+    }
+
+    const state = await loadGameState(started)
+    broadcast(game.id, { type: 'game_state', state })
+    return c.json({ state })
   })
   .get('/:code', validate('param', gameCodeParam), async (c) => {
     const game = await findGameByCode(c.req.param('code'))

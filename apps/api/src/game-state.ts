@@ -1,6 +1,6 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
-import { MAX_PLAYERS, games, messages, players, votes } from './db/schema.js'
+import { MAX_HUMANS, MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from './db/schema.js'
 import { onlinePlayerIds } from './rooms.js'
 
 export type Game = typeof games.$inferSelect
@@ -16,6 +16,8 @@ export type PublicPlayer = {
 export type GameState = {
   game: Pick<Game, 'id' | 'code' | 'status' | 'round' | 'winner'>
   players: PublicPlayer[]
+  hostId: string | null
+  minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
 }
@@ -24,6 +26,7 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
 const CODE_LENGTH = 6
 export const GAME_CODE_REGEX = new RegExp(`^[${CODE_ALPHABET}]{${CODE_LENGTH}}$`, 'i')
 const MESSAGES_HISTORY_LIMIT = 100
+export const HOST_SEAT = 1
 
 export function generateGameCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(CODE_LENGTH))
@@ -57,14 +60,19 @@ export async function findPlayer(gameId: string, userId: string): Promise<Player
 }
 
 export function toPublicPlayer(player: Player, online: boolean): PublicPlayer {
-  return { id: player.id, nickname: player.nickname, isEliminated: player.isEliminated, online }
+  return {
+    id: player.id,
+    nickname: player.nickname,
+    isEliminated: player.isEliminated,
+    online: player.isAi || online,
+  }
 }
 
 export async function loadGameState(game: Game): Promise<GameState> {
   const [gamePlayers, roundVotes] = await Promise.all([
     db.query.players.findMany({
       where: eq(players.gameId, game.id),
-      orderBy: asc(players.joinedAt),
+      orderBy: game.status === 'lobby' ? asc(players.joinedAt) : asc(players.id),
     }),
     db
       .select({ voterId: votes.voterId })
@@ -82,7 +90,9 @@ export async function loadGameState(game: Game): Promise<GameState> {
       winner: game.winner,
     },
     players: gamePlayers.map((player) => toPublicPlayer(player, online.has(player.id))),
-    maxPlayers: MAX_PLAYERS,
+    hostId: gamePlayers.find((player) => player.seat === HOST_SEAT)?.id ?? null,
+    minPlayersToStart: MIN_HUMANS,
+    maxPlayers: game.status === 'lobby' ? MAX_HUMANS : MAX_PLAYERS,
     votedPlayerIds: roundVotes.map((vote) => vote.voterId),
   }
 }
