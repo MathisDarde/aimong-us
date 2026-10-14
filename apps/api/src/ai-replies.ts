@@ -4,29 +4,39 @@ import { db } from './db/index.js'
 import { messages, players } from './db/schema.js'
 import type { Game, Player } from './game-state.js'
 import { complete, isLlmConfigured } from './llm.js'
+import { humanize } from './human-typos.js'
 import { logError, logWarn } from './logger.js'
 import { CHAT_MAX_LENGTH } from './schemas.js'
 
-const HISTORY_LIMIT = 30
+const HISTORY_LIMIT = 100
 const TYPING_BASE_MS = 3_000
 const TYPING_MS_PER_CHAR = 130
 const TYPING_JITTER_MS = 3_000
 
 if (!isLlmConfigured()) logWarn('AI_API_KEY is missing, AI players will pass their turn')
 
-function systemPrompt(ai: Player): string {
+export type ReplyMode = 'turn' | 'lobby'
+
+const TURN_TASK = 'It is your turn: write one message that answers the theme with a concrete invented detail.'
+const LOBBY_TASK =
+  'The game has not started yet: you are chatting in the lobby with the other players. Say something casual, like a real player waiting for the game: greet, joke or react to what was said. Do not talk about the theme, the rules or the game itself, and do not ask who the AIs are.'
+
+function systemPrompt(ai: Player, mode: ReplyMode): string {
   return [
     `You are ${ai.nickname}, a player in an online party chat game.`,
     'Players answer a theme one after the other, and some of them are AIs pretending to be human that everyone is trying to spot.',
     'You are secretly one of those AIs: your goal is to pass as a human until the vote.',
     `Your personality: ${ai.persona ?? 'a regular, friendly player.'}`,
     '',
-    'It is your turn: write one message that answers the theme with a concrete invented detail.',
+    mode === 'lobby' ? LOBBY_TASK : TURN_TASK,
     '',
     'How real players write here:',
     '- Very short: often 1 to 12 words, never more than 2 sentences.',
     '- Match the tone and length of the others, and react to what was just said when it fits.',
-    '- Casual, lowercase, little punctuation. Slang, abbreviations and an occasional typo are fine.',
+    '- Casual, lowercase. Most of your messages have no final punctuation, so do not end every message with a period, and often skip commas too.',
+    '- Make small spelling mistakes fairly often, about one message out of two: a missing letter, two letters swapped, a missing accent, a word stuck to the next one.',
+    '- Copy the writing habits you see in the chat: the abbreviations, the punctuation, the capital letters and the typos of the other players.',
+    '- Slang and abbreviations are fine.',
     '- In French, use "tu" and casual French ("ouais", "jsp", "mdr"), never "vous".',
     '',
     'Never do this, it gets you caught:',
@@ -74,7 +84,11 @@ export function typingDelayMs(reply: string): number {
   return TYPING_BASE_MS + reply.length * TYPING_MS_PER_CHAR + randomInt(TYPING_JITTER_MS)
 }
 
-export async function requestAiReply(game: Game, ai: Player): Promise<string | null> {
+export async function requestAiReply(
+  game: Game,
+  ai: Player,
+  mode: ReplyMode = 'turn',
+): Promise<string | null> {
   if (!isLlmConfigured()) return null
 
   try {
@@ -84,13 +98,14 @@ export async function requestAiReply(game: Game, ai: Player): Promise<string | n
     ])
     const others = seated.filter((player) => player.id !== ai.id).map((player) => player.nickname)
     const reply = await complete([
-      { role: 'system', content: systemPrompt(ai) },
+      { role: 'system', content: systemPrompt(ai, mode) },
       {
         role: 'user',
-        content: `Players: ${others.join(', ')} (you are ${ai.nickname})\nTheme: ${game.theme ?? 'anything'}\n\n<chat>\n${chat}\n</chat>\n\nYour message:`,
+        content: `Players: ${others.join(', ')} (you are ${ai.nickname})\n${mode === 'turn' ? `Theme: ${game.theme ?? 'anything'}\n` : ''}\n<chat>\n${chat}\n</chat>\n\nYour message:`,
       },
     ])
-    return cleanReply(reply, ai.nickname)
+    const cleaned = cleanReply(reply, ai.nickname)
+    return cleaned ? humanize(cleaned) : null
   } catch (err) {
     logError('AI reply failed', err, { gameId: game.id, playerId: ai.id })
     return null
