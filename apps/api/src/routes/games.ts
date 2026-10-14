@@ -34,8 +34,9 @@ import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { logError } from '../logger.js'
 import { pickNickname } from '../nicknames.js'
 import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
+import { postMessage } from '../chat.js'
 import { createRateLimiter } from '../rate-limit.js'
-import { scheduleAiReactions, toggleReaction } from '../reactions.js'
+import { toggleReaction } from '../reactions.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { clearPhaseTimer, ensurePhaseTimer, handleVoteCast, publishPhaseChange, schedulePhase } from '../phases.js'
 import { advanceTurn, beginRound } from '../turns.js'
@@ -115,24 +116,6 @@ async function handleChat(game: Game, player: Player, content: string, ws: WSCon
 
   await postMessage(game, player, content)
   await publishPhaseChange(claimed)
-}
-
-async function postMessage(game: Game, player: Player, content: string) {
-  const [message] = await db
-    .insert(messages)
-    .values({ gameId: game.id, playerId: player.id, content })
-    .returning({
-      id: messages.id,
-      playerId: messages.playerId,
-      content: messages.content,
-      createdAt: messages.createdAt,
-    })
-  broadcast(game.id, { type: 'chat', message })
-  if (game.status === 'playing' || game.status === 'voting') {
-    scheduleAiReactions(game, message).catch((err) =>
-      logError('AI reactions scheduling failed', err, { gameId: game.id }),
-    )
-  }
 }
 
 async function handleReact(

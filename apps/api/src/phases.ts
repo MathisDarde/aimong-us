@@ -2,6 +2,8 @@ import { randomInt } from 'node:crypto'
 import { and, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
 import { games, players } from './db/schema.js'
+import { requestAiReply } from './ai-replies.js'
+import { postMessage } from './chat.js'
 import { currentTurnPlayerId, loadGameState, type Game } from './game-state.js'
 import { logError } from './logger.js'
 import { broadcast } from './rooms.js'
@@ -47,14 +49,19 @@ async function scheduleTurn(game: Game) {
   const speaker = await db.query.players.findFirst({ where: eq(players.id, playerId) })
 
   let delayMs = remaining
+  let aiReply: Promise<string | null> | null = null
   if (speaker?.isAi) {
     delayMs = Math.min(remaining, randomInt(AI_TURN_MIN_DELAY_MS, AI_TURN_MAX_DELAY_MS + 1))
+    aiReply = requestAiReply(game, speaker)
     broadcast(game.id, { type: 'typing', playerId })
   }
 
   armPhaseTimer(game, delayMs, async () => {
+    const reply = aiReply ? await aiReply : null
     const advanced = await advanceTurn(game.id, playerId)
-    if (advanced) await publishPhaseChange(advanced)
+    if (!advanced) return
+    if (reply && speaker) await postMessage(game, speaker, reply)
+    await publishPhaseChange(advanced)
   })
 }
 
