@@ -1,10 +1,13 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { ChatPanel } from '@/components/game/chat-panel'
 import { PlayerList } from '@/components/game/player-list'
+import { PhaseBanner } from '@/components/game/phase-banner'
+import { ThemeCard } from '@/components/game/theme-card'
 import { Logo } from '@/components/landing/logo'
 import { Button } from '@/components/ui/button'
+import { useCountdown } from '@/hooks/use-countdown'
 import { useGameRoom, type RoomStatus } from '@/hooks/use-game-room'
-import type { GameState } from '@/lib/game-types'
+import type { GameState, GameStatus } from '@/lib/game-types'
 import { ROUTES } from '@/lib/routes'
 
 const CONNECTION_NOTICE: Record<RoomStatus, string> = {
@@ -17,10 +20,16 @@ const CONNECTION_NOTICE: Record<RoomStatus, string> = {
 const STOP_CONFIRMATION = 'Stop the game for everyone?'
 const HOST_LEAVE_CONFIRMATION = 'You are the host: leaving will close the room for everyone. Leave?'
 
+function isChatOpen(status: GameStatus, myTurn: boolean) {
+  if (status === 'playing') return myTurn
+  return status === 'lobby' || status === 'voting'
+}
+
 function statusLabel({ game }: GameState) {
   if (game.status === 'lobby') return 'Waiting for players'
-  if (game.status === 'playing') return `Round ${game.round}: chat`
+  if (game.status === 'playing') return `Round ${game.round}: take turns`
   if (game.status === 'voting') return `Round ${game.round}: vote for the AI`
+  if (game.status === 'results') return `Round ${game.round}: results`
   if (game.winner === 'ais') return 'The AIs win!'
   if (game.winner === 'humans') return 'The humans win!'
   return 'Game stopped by the host'
@@ -33,9 +42,13 @@ export function GamePage() {
 }
 
 function GameRoom({ code }: { code: string }) {
-  const { state, messages, me, status, error, notice, send, start, stop, leave } =
+  const { state, messages, me, status, error, notice, typingIds, send, start, stop, leave } =
     useGameRoom(code)
   const navigate = useNavigate()
+  const secondsLeft = useCountdown(
+    state?.turn.endsInMs ?? null,
+    `${state?.game.status}:${state?.game.round}:${state?.turn.index}`,
+  )
 
   if (status === 'error') {
     return (
@@ -55,7 +68,13 @@ function GameRoom({ code }: { code: string }) {
 
   const myPlayer = state.players.find((player) => player.id === me)
   const live = status === 'live'
-  const canChat = live && state.game.status !== 'finished' && !myPlayer?.isEliminated
+  const speakerId = state.turn.playerId
+  const myTurn = speakerId !== null && speakerId === me
+  const chatOpen = isChatOpen(state.game.status, myTurn)
+  const canChat = live && chatOpen && !myPlayer?.isEliminated
+  const typingNames = state.players
+    .filter((player) => typingIds.includes(player.id) && player.id !== me)
+    .map((player) => player.nickname)
   const canVote = live && state.game.status === 'voting' && !myPlayer?.isEliminated
   const isHost = state.hostId === me
   const isHostInLobby = state.game.status === 'lobby' && isHost
@@ -102,6 +121,7 @@ function GameRoom({ code }: { code: string }) {
             players={state.players}
             meId={me}
             votedPlayerIds={state.votedPlayerIds}
+            speakerId={speakerId}
             canVote={canVote}
             onVote={(targetId) => send({ type: 'vote', targetId })}
           />
@@ -120,12 +140,20 @@ function GameRoom({ code }: { code: string }) {
         </section>
 
         <section className="flex min-w-0 flex-[2_1_420px] flex-col gap-3">
+          {state.theme && state.game.status !== 'finished' && (
+            <ThemeCard theme={state.theme} round={state.game.round} maxRounds={state.maxRounds} />
+          )}
+          <PhaseBanner state={state} meId={me} secondsLeft={secondsLeft} />
           <ChatPanel
             messages={messages}
             players={state.players}
             meId={me}
             canSend={canChat}
+            closedReason={state.game.status === 'playing' ? 'Wait for your turn' : 'Chat is closed'}
+            typingNames={typingNames}
             onSend={(content) => send({ type: 'chat', content })}
+            onTyping={() => send({ type: 'typing' })}
+            onReact={(messageId, emoji) => send({ type: 'react', messageId, emoji })}
           />
           {!live && <p className="m-0 text-sm opacity-80">{CONNECTION_NOTICE[status]}</p>}
           {notice && (

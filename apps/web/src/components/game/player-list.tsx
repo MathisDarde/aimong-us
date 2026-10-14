@@ -7,11 +7,27 @@ type PlayerListProps = {
   players: PublicPlayer[]
   meId: string | null
   votedPlayerIds: string[]
+  speakerId: string | null
   canVote: boolean
   onVote: (targetId: string) => void
 }
 
-export function PlayerList({ players, meId, votedPlayerIds, canVote, onVote }: PlayerListProps) {
+const ROLE_LABEL = { ai: 'AI', human: 'Human' } as const
+
+function presenceLabel(player: PublicPlayer, speakerId: string | null) {
+  if (player.id === speakerId) return 'Speaking'
+  if (player.isEliminated) return 'Eliminated'
+  return player.online ? 'Online' : 'Offline'
+}
+
+export function PlayerList({
+  players,
+  meId,
+  votedPlayerIds,
+  speakerId,
+  canVote,
+  onVote,
+}: PlayerListProps) {
   const hasVoted = meId !== null && votedPlayerIds.includes(meId)
 
   return (
@@ -27,6 +43,7 @@ export function PlayerList({ players, meId, votedPlayerIds, canVote, onVote }: P
             className={cn(
               'flex items-center gap-3 rounded-[18px] border-3 border-ink bg-nuit px-3 py-2',
               player.isEliminated && 'opacity-50',
+              player.id === speakerId && 'border-menthe',
             )}
           >
             <Avatar color={color} disguise={disguise} size={40} />
@@ -36,10 +53,20 @@ export function PlayerList({ players, meId, votedPlayerIds, canVote, onVote }: P
                 {isMe && ' (you)'}
               </span>
               <span className="text-xs opacity-70">
-                {player.isEliminated ? 'Eliminated' : player.online ? 'Online' : 'Offline'}
+                {presenceLabel(player, speakerId)}
                 {votedPlayerIds.includes(player.id) && ' · voted'}
               </span>
             </div>
+            {player.role && (
+              <span
+                className={cn(
+                  '-rotate-6 rounded-lg border-3 px-2 font-display text-sm font-bold tracking-[1.5px]',
+                  player.role === 'ai' ? 'border-menthe text-menthe' : 'border-rose text-rose',
+                )}
+              >
+                {ROLE_LABEL[player.role]}
+              </span>
+            )}
             {votable && (
               <button
                 type="button"

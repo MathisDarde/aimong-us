@@ -1,25 +1,34 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
 import { MAX_HUMANS, MAX_PLAYERS, MIN_PLAYERS, games, messages, players, votes } from './db/schema.js'
+import { loadReactionsByMessage } from './reactions.js'
+import { MAX_ROUNDS } from './rules.js'
 import { onlinePlayerIds } from './rooms.js'
 
 export type Game = typeof games.$inferSelect
 export type Player = typeof players.$inferSelect
+
+export type Role = 'ai' | 'human'
 
 export type PublicPlayer = {
   id: string
   nickname: string
   isEliminated: boolean
   online: boolean
+  role: Role | null
 }
 
 export type GameState = {
   game: Pick<Game, 'id' | 'code' | 'status' | 'round' | 'winner'>
+  theme: string | null
+  maxRounds: number
+  lastResult: { eliminatedId: string | null; role: Role | null } | null
   players: PublicPlayer[]
   hostId: string | null
   minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
+  turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -59,13 +68,29 @@ export async function findPlayer(gameId: string, userId: string): Promise<Player
   })
 }
 
-export function toPublicPlayer(player: Player, online: boolean): PublicPlayer {
+export function currentTurnPlayerId(game: Game): string | null {
+  if (game.status !== 'playing') return null
+  return game.turnOrder[game.turnIndex] ?? null
+}
+
+export function toPublicPlayer(player: Player, online: boolean, revealAll = false): PublicPlayer {
+  const revealed = revealAll || player.isEliminated
   return {
     id: player.id,
     nickname: player.nickname,
     isEliminated: player.isEliminated,
     online: player.isAi || online,
+    role: revealed ? roleOf(player) : null,
   }
+}
+
+function roleOf(player: Player): Role {
+  return player.isAi ? 'ai' : 'human'
+}
+
+function lastResult(game: Game, gamePlayers: Player[]) {
+  const eliminated = gamePlayers.find((player) => player.id === game.lastEliminatedId)
+  return { eliminatedId: eliminated?.id ?? null, role: eliminated ? roleOf(eliminated) : null }
 }
 
 export async function loadGameState(game: Game): Promise<GameState> {
@@ -89,11 +114,21 @@ export async function loadGameState(game: Game): Promise<GameState> {
       round: game.round,
       winner: game.winner,
     },
-    players: gamePlayers.map((player) => toPublicPlayer(player, online.has(player.id))),
+    theme: game.theme,
+    maxRounds: MAX_ROUNDS,
+    lastResult: game.status === 'results' ? lastResult(game, gamePlayers) : null,
+    players: gamePlayers.map((player) =>
+      toPublicPlayer(player, online.has(player.id), game.status === 'finished'),
+    ),
     hostId: gamePlayers.find((player) => player.seat === HOST_SEAT)?.id ?? null,
     minPlayersToStart: MIN_PLAYERS,
     maxPlayers: game.status === 'lobby' ? MAX_HUMANS : MAX_PLAYERS,
     votedPlayerIds: roundVotes.map((vote) => vote.voterId),
+    turn: {
+      playerId: currentTurnPlayerId(game),
+      index: game.turnIndex,
+      endsInMs: game.turnDeadline ? Math.max(0, game.turnDeadline.getTime() - Date.now()) : null,
+    },
   }
 }
 
@@ -109,5 +144,7 @@ export async function loadRecentMessages(gameId: string) {
     .where(eq(messages.gameId, gameId))
     .orderBy(desc(messages.createdAt))
     .limit(MESSAGES_HISTORY_LIMIT)
-  return recent.reverse()
+  const ordered = recent.reverse()
+  const reactionsByMessage = await loadReactionsByMessage(ordered.map((message) => message.id))
+  return ordered.map((message) => ({ ...message, reactions: reactionsByMessage.get(message.id) ?? [] }))
 }

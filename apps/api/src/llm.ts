@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { env } from './env.js'
 
-const LLM_TIMEOUT_MS = 30_000
+const LLM_TIMEOUT_MS = 10_000
 const LLM_MAX_TOKENS = 200
 const LLM_TEMPERATURE = 0.9
 

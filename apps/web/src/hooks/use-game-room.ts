@@ -11,11 +11,13 @@ import {
   stopGame,
 } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
+import { applyReaction } from '@/lib/reactions'
 
 const MAX_RECONNECT_ATTEMPTS = 8
 const RECONNECT_BASE_DELAY_MS = 1000
 const RECONNECT_MAX_DELAY_MS = 15_000
 const HTTP_SERVER_ERROR = 500
+const TYPING_TTL_MS = 4000
 
 export type RoomStatus = 'loading' | 'live' | 'disconnected' | 'error'
 
@@ -58,12 +60,26 @@ export function useGameRoom(code: string) {
   const [status, setStatus] = useState<RoomStatus>('loading')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
+  const [typingIds, setTypingIds] = useState<string[]>([])
   const socketRef = useRef<WebSocket | null>(null)
 
   useEffect(() => {
     let cancelled = false
     let failures = 0
     let retryTimer: ReturnType<typeof setTimeout> | undefined
+    const typingTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+    function stopTyping(playerId: string) {
+      clearTimeout(typingTimers.get(playerId))
+      typingTimers.delete(playerId)
+      setTypingIds((current) => current.filter((id) => id !== playerId))
+    }
+
+    function startTyping(playerId: string) {
+      clearTimeout(typingTimers.get(playerId))
+      typingTimers.set(playerId, setTimeout(() => stopTyping(playerId), TYPING_TTL_MS))
+      setTypingIds((current) => (current.includes(playerId) ? current : [...current, playerId]))
+    }
 
     function fail(message: string) {
       setError(message)
@@ -83,7 +99,16 @@ export function useGameRoom(code: string) {
 
     function handleEvent(event: ServerEvent) {
       if (event.type === 'chat') {
+        stopTyping(event.message.playerId)
         setMessages((current) => mergeMessages(current, [event.message]))
+        return
+      }
+      if (event.type === 'typing') {
+        startTyping(event.playerId)
+        return
+      }
+      if (event.type === 'reaction') {
+        setMessages((current) => applyReaction(current, event))
         return
       }
       if (event.type === 'error') {
@@ -137,6 +162,7 @@ export function useGameRoom(code: string) {
     return () => {
       cancelled = true
       clearTimeout(retryTimer)
+      typingTimers.forEach((timer) => clearTimeout(timer))
       socketRef.current?.close()
       socketRef.current = null
     }
@@ -180,5 +206,5 @@ export function useGameRoom(code: string) {
     }
   }, [code])
 
-  return { state, messages, me, status, error, notice, send, start, stop, leave }
+  return { state, messages, me, status, error, notice, typingIds, send, start, stop, leave }
 }

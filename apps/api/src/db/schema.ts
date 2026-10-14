@@ -1,10 +1,12 @@
 import { sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -112,13 +114,20 @@ export const MAX_AIS = 2
 export const MAX_HUMANS = MAX_PLAYERS - MIN_AIS
 export const MIN_HUMANS = MIN_PLAYERS - MAX_AIS
 
-export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'finished'])
+export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'results', 'finished'])
 
 export const games = pgTable('games', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 8 }).notNull().unique(),
   status: gameStatus('status').notNull().default('lobby'),
   round: integer('round').notNull().default(0),
+  turnOrder: jsonb('turn_order').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  turnIndex: integer('turn_index').notNull().default(0),
+  turnDeadline: timestamp('turn_deadline', { withTimezone: true }),
+  theme: text('theme'),
+  lastEliminatedId: uuid('last_eliminated_id').references((): AnyPgColumn => players.id, {
+    onDelete: 'set null',
+  }),
   winner: varchar('winner', { length: 16 }), // 'humans' | 'ais'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
@@ -158,6 +167,22 @@ export const messages = pgTable('messages', {
   content: text('content').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
+
+export const reactions = pgTable(
+  'reactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    emoji: varchar('emoji', { length: 8 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('reactions_message_player_emoji_unique').on(t.messageId, t.playerId, t.emoji)],
+)
 
 export const votes = pgTable(
   'votes',

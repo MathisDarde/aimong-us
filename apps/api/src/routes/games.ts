@@ -3,9 +3,7 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
-import { triggerAiReplies } from '../ai-chat.js'
 import { fillMissingAis, minAiCount, scheduleAiArrivals } from '../ai-players.js'
-import { postMessage } from '../chat.js'
 import { db } from '../db/index.js'
 import {
   MAX_HUMANS,
@@ -19,6 +17,7 @@ import {
 import { env } from '../env.js'
 import {
   HOST_SEAT,
+  currentTurnPlayerId,
   findGameByCode,
   findGameById,
   findPlayer,
@@ -34,8 +33,12 @@ import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { logError } from '../logger.js'
 import { pickNickname } from '../nicknames.js'
 import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
+import { postMessage } from '../chat.js'
 import { createRateLimiter } from '../rate-limit.js'
+import { toggleReaction } from '../reactions.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
+import { clearPhaseTimer, ensurePhaseTimer, handleVoteCast, publishPhaseChange, schedulePhase } from '../phases.js'
+import { advanceTurn, beginRound } from '../turns.js'
 import { validate } from '../validation.js'
 import {
   broadcast,
@@ -53,6 +56,8 @@ const GAME_CREATION_MAX = 5
 const CODE_GENERATION_ATTEMPTS = 5
 
 const isEventRateLimited = createRateLimiter({ max: 5, windowMs: 10_000 })
+const isTypingRateLimited = createRateLimiter({ max: 8, windowMs: 10_000 })
+const isReactionRateLimited = createRateLimiter({ max: 10, windowMs: 10_000 })
 const isGameCreationRateLimited = createRateLimiter({
   max: GAME_CREATION_MAX,
   windowMs: GAME_CREATION_WINDOW_MS,
@@ -95,16 +100,36 @@ function runSafely(ws: WSContext, task: () => Promise<void>) {
 }
 
 async function handleChat(game: Game, player: Player, content: string, ws: WSContext) {
-  if (game.status === 'finished') {
-    return send(ws, { type: 'error', message: 'The game is over' })
+  if (game.status === 'finished' || game.status === 'results') {
+    return send(ws, { type: 'error', message: 'Chat is closed' })
   }
   if (player.isEliminated) {
     return send(ws, { type: 'error', message: 'Eliminated players cannot chat' })
   }
 
-  await postMessage(game.id, player.id, content)
-  if (game.status === 'playing' && !player.isAi) {
-    triggerAiReplies(game.id, content).catch((err) => logError('AI replies failed', err, { gameId: game.id }))
+  if (game.status !== 'playing') return postMessage(game, player, content)
+
+  const claimed =
+    currentTurnPlayerId(game) === player.id ? await advanceTurn(game.id, player.id) : undefined
+  if (!claimed) return send(ws, { type: 'error', message: 'It is not your turn' })
+
+  await postMessage(game, player, content)
+  await publishPhaseChange(claimed)
+}
+
+async function handleReact(
+  game: Game,
+  player: Player,
+  messageId: string,
+  emoji: string,
+  ws: WSContext,
+) {
+  if (game.status === 'finished') return send(ws, { type: 'error', message: 'The game is over' })
+  if (player.isEliminated) {
+    return send(ws, { type: 'error', message: 'Eliminated players cannot react' })
+  }
+  if ((await toggleReaction(game.id, messageId, player.id, emoji)) === 'message_not_found') {
+    send(ws, { type: 'error', message: 'Message not found' })
   }
 }
 
@@ -135,15 +160,22 @@ async function handleVote(game: Game, player: Player, targetId: string, ws: WSCo
     return send(ws, { type: 'error', message: 'You have already voted this round' })
   }
 
-  broadcast(game.id, { type: 'game_state', state: await loadGameState(game) })
+  await handleVoteCast(game.id)
 }
 
-async function handleClientMessage(playerId: string, raw: unknown, ws: WSContext) {
-  if (isEventRateLimited(playerId)) {
+async function handleClientMessage(gameId: string, playerId: string, raw: unknown, ws: WSContext) {
+  const event = parseClientEvent(raw)
+  if (event?.type === 'typing') {
+    if (!isTypingRateLimited(playerId)) broadcast(gameId, { type: 'typing', playerId })
+    return
+  }
+
+  const limited =
+    event?.type === 'react' ? isReactionRateLimited(playerId) : isEventRateLimited(playerId)
+  if (limited) {
     return send(ws, { type: 'error', message: 'Too many messages, wait a few seconds' })
   }
 
-  const event = parseClientEvent(raw)
   if (!event) return send(ws, { type: 'error', message: 'Invalid event' })
 
   const found = await findPlayerWithGame(playerId)
@@ -151,6 +183,7 @@ async function handleClientMessage(playerId: string, raw: unknown, ws: WSContext
   const { game, player } = found
 
   if (event.type === 'chat') return handleChat(game, player, event.content, ws)
+  if (event.type === 'react') return handleReact(game, player, event.messageId, event.emoji, ws)
   return handleVote(game, player, event.targetId, ws)
 }
 
@@ -167,7 +200,8 @@ async function startLobbyGame(game: Game): Promise<Game | 'not_enough_players' |
     .set({ status: 'playing', round: 1 })
     .where(and(eq(games.id, game.id), eq(games.status, 'lobby')))
     .returning()
-  return started ?? 'conflict'
+  if (!started) return 'conflict'
+  return (await beginRound(started)) ?? 'conflict'
 }
 
 async function stopGame(game: Game): Promise<Game | undefined> {
@@ -176,6 +210,7 @@ async function stopGame(game: Game): Promise<Game | undefined> {
     .set({ status: 'finished', winner: null })
     .where(and(eq(games.id, game.id), ne(games.status, 'finished')))
     .returning()
+  clearPhaseTimer(game.id)
   if (stopped) broadcast(game.id, { type: 'game_state', state: await loadGameState(stopped) })
   return stopped
 }
@@ -280,6 +315,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
 
     const state = await loadGameState(started)
     broadcast(game.id, { type: 'game_state', state })
+    await schedulePhase(started)
     return c.json({ state })
   })
   .post('/:code/stop', validate('param', gameCodeParam), requirePlayer, async (c) => {
@@ -341,13 +377,14 @@ export const gamesRoutes = new Hono<AuthEnv>()
           runSafely(ws, async () => {
             const game = await findGameById(gameId)
             if (!game) return ws.close(WS_POLICY_VIOLATION, 'Game not found')
+            await ensurePhaseTimer(game)
             const state = await loadGameState(game)
             if (isFirstConnection) broadcast(gameId, { type: 'game_state', state })
             else send(ws, { type: 'game_state', state })
           })
         },
         onMessage(evt, ws) {
-          runSafely(ws, () => handleClientMessage(playerId, evt.data, ws))
+          runSafely(ws, () => handleClientMessage(gameId, playerId, evt.data, ws))
         },
         onClose() {
           clearTimeout(expiryTimer)
