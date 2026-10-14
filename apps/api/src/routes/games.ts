@@ -3,7 +3,7 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
-import { scheduleAiArrivals, seatAiInLobby } from '../ai-players.js'
+import { fillMissingAis, minAiCount, scheduleAiArrivals } from '../ai-players.js'
 import { db } from '../db/index.js'
 import {
   MAX_HUMANS,
@@ -11,7 +11,6 @@ import {
   MIN_HUMANS,
   MIN_PLAYERS,
   games,
-  messages,
   players,
   votes,
 } from '../db/schema.js'
@@ -191,9 +190,10 @@ async function handleClientMessage(gameId: string, playerId: string, raw: unknow
 async function startLobbyGame(game: Game): Promise<Game | 'not_enough_players' | 'conflict'> {
   const seated = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
   const humanCount = seated.filter((player) => !player.isAi).length
-  if (humanCount < MIN_HUMANS || seated.length < MIN_PLAYERS) return 'not_enough_players'
+  const aiCount = Math.max(seated.length - humanCount, minAiCount())
+  if (humanCount < MIN_HUMANS || humanCount + aiCount < MIN_PLAYERS) return 'not_enough_players'
 
-  if (humanCount === seated.length) await seatAiInLobby(game.id)
+  await fillMissingAis(game.id)
 
   const [started] = await db
     .update(games)

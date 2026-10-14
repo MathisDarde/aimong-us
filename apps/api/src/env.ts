@@ -19,11 +19,13 @@ export const env = {
   PORT: Number(process.env.PORT ?? 3000),
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   BETTER_AUTH_SECRET,
-  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || null,
-  ANTHROPIC_BASE_URL: process.env.ANTHROPIC_BASE_URL || null,
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   TRUSTED_PROXIES: (process.env.TRUSTED_PROXIES ?? '')
     .split(',')
     .map((proxy) => proxy.trim())
     .filter(Boolean),
+  AI_BASE_URL: (process.env.AI_BASE_URL || 'https://api.scaleway.ai/v1').replace(/\/+$/, ''),
+  AI_API_KEY: process.env.AI_API_KEY,
+  AI_MODEL: process.env.AI_MODEL || 'deepseek-v4.1-flash',
+  FORCE_MAX_AIS: !isProduction && process.env.FORCE_MAX_AIS === 'true',
 }
