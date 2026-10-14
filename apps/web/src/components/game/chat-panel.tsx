@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import type { ChatMessage, PublicPlayer } from '@/lib/game-types'
+import { ReactionBar } from './reaction-bar'
 import { cn } from '@/lib/utils'
 
 const CHAT_MAX_LENGTH = 500
@@ -11,10 +12,12 @@ type ChatPanelProps = {
   meId: string | null
   canSend: boolean
   onSend: (content: string) => void
+  onReact: (messageId: string, emoji: string) => void
 }
 
-export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPanelProps) {
+export function ChatPanel({ messages, players, meId, canSend, onSend, onReact }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const [pickerMessageId, setPickerMessageId] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,6 +31,11 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
     if (!content) return
     onSend(content)
     setDraft('')
+  }
+
+  function handleReact(messageId: string, emoji: string) {
+    onReact(messageId, emoji)
+    setPickerMessageId(null)
   }
 
   function nicknameOf(playerId: string) {
@@ -51,6 +59,16 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
               >
                 {message.content}
               </p>
+              <ReactionBar
+                reactions={message.reactions ?? []}
+                meId={meId}
+                disabled={!canSend}
+                pickerOpen={pickerMessageId === message.id}
+                onTogglePicker={() =>
+                  setPickerMessageId(pickerMessageId === message.id ? null : message.id)
+                }
+                onReact={(emoji) => handleReact(message.id, emoji)}
+              />
             </div>
           )
         })}
