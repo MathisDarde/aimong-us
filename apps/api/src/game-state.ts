@@ -1,6 +1,6 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
-import { MAX_HUMANS, MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from './db/schema.js'
+import { MAX_HUMANS, MAX_PLAYERS, MIN_PLAYERS, games, messages, players, votes } from './db/schema.js'
 import { onlinePlayerIds } from './rooms.js'
 
 export type Game = typeof games.$inferSelect
@@ -91,7 +91,7 @@ export async function loadGameState(game: Game): Promise<GameState> {
     },
     players: gamePlayers.map((player) => toPublicPlayer(player, online.has(player.id))),
     hostId: gamePlayers.find((player) => player.seat === HOST_SEAT)?.id ?? null,
-    minPlayersToStart: MIN_HUMANS,
+    minPlayersToStart: MIN_PLAYERS,
     maxPlayers: game.status === 'lobby' ? MAX_HUMANS : MAX_PLAYERS,
     votedPlayerIds: roundVotes.map((vote) => vote.voterId),
   }

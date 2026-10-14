@@ -3,9 +3,18 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
-import { drawAiCount, pickAiNicknames } from '../ai-players.js'
+import { scheduleAiArrivals, seatAiInLobby } from '../ai-players.js'
 import { db } from '../db/index.js'
-import { MAX_HUMANS, MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from '../db/schema.js'
+import {
+  MAX_HUMANS,
+  MAX_PLAYERS,
+  MIN_HUMANS,
+  MIN_PLAYERS,
+  games,
+  messages,
+  players,
+  votes,
+} from '../db/schema.js'
 import { env } from '../env.js'
 import {
   HOST_SEAT,
@@ -22,14 +31,13 @@ import {
 } from '../game-state.js'
 import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { logError } from '../logger.js'
+import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
 import { createRateLimiter } from '../rate-limit.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { validate } from '../validation.js'
 import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
 
 const WS_POLICY_VIOLATION = 1008
-const PG_UNIQUE_VIOLATION = '23505'
-const PG_CHECK_VIOLATION = '23514'
 const GAME_CREATION_WINDOW_MS = 60_000
 const GAME_CREATION_MAX = 5
 const CODE_GENERATION_ATTEMPTS = 5
@@ -142,45 +150,19 @@ async function handleClientMessage(playerId: string, raw: unknown, ws: WSContext
   return handleVote(game, player, event.targetId, ws)
 }
 
-function pgErrorCode(err: unknown): string | undefined {
-  if (typeof err !== 'object' || err === null) return undefined
-  if ('code' in err && typeof err.code === 'string') return err.code
-  return 'cause' in err ? pgErrorCode(err.cause) : undefined
-}
+async function startLobbyGame(game: Game): Promise<Game | 'not_enough_players' | 'conflict'> {
+  const seated = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
+  const humanCount = seated.filter((player) => !player.isAi).length
+  if (humanCount < MIN_HUMANS || seated.length < MIN_PLAYERS) return 'not_enough_players'
 
-async function seatAiPlayers(game: Game): Promise<Game | 'not_enough_players' | 'conflict'> {
-  const humans = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
-  if (humans.length < MIN_HUMANS) return 'not_enough_players'
+  if (humanCount === seated.length) await seatAiInLobby(game.id)
 
-  const nicknames = pickAiNicknames(
-    drawAiCount(humans.length),
-    humans.map((human) => human.nickname),
-  )
-  const takenSeats = new Set(humans.map((human) => human.seat))
-  const freeSeats = Array.from({ length: MAX_PLAYERS }, (_, index) => index + 1).filter(
-    (seat) => !takenSeats.has(seat),
-  )
-  try {
-    const [[started]] = await db.batch([
-      db
-        .update(games)
-        .set({ status: 'playing', round: 1 })
-        .where(and(eq(games.id, game.id), eq(games.status, 'lobby')))
-        .returning(),
-      db.insert(players).values(
-        nicknames.map((nickname, index) => ({
-          gameId: game.id,
-          nickname,
-          isAi: true,
-          seat: freeSeats[index],
-        })),
-      ),
-    ])
-    return started ?? 'conflict'
-  } catch (err) {
-    if (pgErrorCode(err) === PG_UNIQUE_VIOLATION) return 'conflict'
-    throw err
-  }
+  const [started] = await db
+    .update(games)
+    .set({ status: 'playing', round: 1 })
+    .where(and(eq(games.id, game.id), eq(games.status, 'lobby')))
+    .returning()
+  return started ?? 'conflict'
 }
 
 async function stopGame(game: Game): Promise<Game | undefined> {
@@ -243,6 +225,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
         db.insert(games).values({ id: gameId, code }).returning(),
         db.insert(players).values({ gameId, userId: user.id, nickname: user.name, seat: 1 }).returning(),
       ])
+      scheduleAiArrivals(game.id)
       return c.json({ state: await loadGameState(game), me: player.id }, 201)
     }
 
@@ -275,9 +258,9 @@ export const gamesRoutes = new Hono<AuthEnv>()
     }
     if (game.status !== 'lobby') return c.json({ error: 'The game has already started' }, 409)
 
-    const started = await seatAiPlayers(game)
+    const started = await startLobbyGame(game)
     if (started === 'not_enough_players') {
-      return c.json({ error: `At least ${MIN_HUMANS} players are needed to start` }, 409)
+      return c.json({ error: `At least ${MIN_PLAYERS} players are needed to start` }, 409)
     }
     if (started === 'conflict') {
       return c.json({ error: 'The lobby changed, try again' }, 409)
