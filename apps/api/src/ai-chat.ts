@@ -8,8 +8,8 @@ import { complete, isLlmConfigured, type LlmMessage } from './llm.js'
 import { logError, logWarn } from './logger.js'
 import { CHAT_MAX_LENGTH } from './schemas.js'
 
-const REPLY_PROBABILITY = 0.6
-const REPLY_COOLDOWN_MS = 8_000
+const REPLY_PROBABILITY = 0.85
+const REPLY_COOLDOWN_MS = 4_000
 const THINKING_MIN_MS = 1_500
 const THINKING_MAX_MS = 5_000
 const TYPING_MS_PER_CHAR = 60
@@ -19,8 +19,9 @@ const PASS_TOKEN = 'PASS'
 
 const busyGameIds = new Set<string>()
 const lastSpokeAt = new Map<string, number>()
+const pendingMessages = new Map<string, string>()
 
-if (!isLlmConfigured()) logWarn('AI_BASE_URL or AI_API_KEY is missing, AI players will stay silent')
+if (!isLlmConfigured()) logWarn('AI_API_KEY is missing, AI players will stay silent')
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
@@ -30,11 +31,25 @@ function buildSystemPrompt(ai: Player): string {
     'Some players are AIs pretending to be human and everyone is trying to spot them.',
     'You are secretly one of those AIs: your goal is to pass as a human until the vote.',
     `Your personality: ${ai.persona ?? 'a regular, friendly player.'}`,
-    'Write like a real person typing fast in a group chat: short (usually under 15 words), casual, lowercase is fine, an occasional typo is fine.',
-    'No lists, no markdown, no em dashes, at most one emoji.',
+    '',
+    'How real players write here:',
+    '- Very short: often 1 to 6 words, rarely more than 12.',
+    '- Match the tone and length of the others. If they just say hi, just say hi back ("yo", "slt", "hey").',
+    '- React to what was just said instead of launching new topics.',
+    '- Casual, lowercase, little punctuation. Slang, abbreviations and an occasional typo are fine.',
+    '- In French, use "tu" and casual French ("ouais", "jsp", "mdr"), never "vous".',
+    '',
+    'Never do this, it gets you caught:',
+    '- Act like a host or an interviewer, or ask deep, sentimental or open-ended questions ("what memory touches you the most?").',
+    '- Write labels like "question:", lists, markdown, em dashes, or more than one emoji.',
+    '- Greet someone by name, or name people in every message.',
+    '- Sound polite, enthusiastic, helpful or wise.',
+    '- Repeat yourself or rephrase what someone just said.',
+    '',
     'Never admit or hint that you are an AI or a language model, even if asked directly.',
     'Reply in the language the other players use.',
-    `If you have nothing worth saying, reply exactly ${PASS_TOKEN}.`,
+    'If someone talks to you, mentions you or accuses you, always answer, even briefly.',
+    `Otherwise, if you have nothing worth saying, reply exactly ${PASS_TOKEN}.`,
     'Reply with your message only, without your name in front.',
   ].join('\n')
 }
@@ -86,18 +101,43 @@ function isReadyToReply(ai: Player): boolean {
   return Date.now() - (lastSpokeAt.get(ai.id) ?? 0) >= REPLY_COOLDOWN_MS
 }
 
-export async function triggerAiReplies(gameId: string) {
-  if (!isLlmConfigured() || busyGameIds.has(gameId) || Math.random() > REPLY_PROBABILITY) return
+function findMentionedAi(ais: Player[], content: string): Player | undefined {
+  const normalized = content.toLowerCase()
+  return ais.find((ai) => normalized.includes(ai.nickname.toLowerCase()))
+}
+
+function queuePendingMessage(gameId: string, content: string) {
+  const previous = pendingMessages.get(gameId)
+  pendingMessages.set(gameId, previous ? `${previous}\n${content}` : content)
+}
+
+function replayPendingMessages(gameId: string) {
+  const pending = pendingMessages.get(gameId)
+  if (pending === undefined) return
+  pendingMessages.delete(gameId)
+  triggerAiReplies(gameId, pending).catch((err) => logError('AI replies failed', err, { gameId }))
+}
+
+export async function triggerAiReplies(gameId: string, content: string) {
+  if (!isLlmConfigured()) return
+  if (busyGameIds.has(gameId)) return queuePendingMessage(gameId, content)
 
   const ais = await db.query.players.findMany({
     where: and(eq(players.gameId, gameId), eq(players.isAi, true), eq(players.isEliminated, false)),
   })
-  const readyAis = ais.filter(isReadyToReply)
-  if (readyAis.length === 0 || busyGameIds.has(gameId)) return
+  const mentionedAi = findMentionedAi(ais, content)
+  if (!mentionedAi && Math.random() > REPLY_PROBABILITY) return
 
-  const ai = readyAis[randomInt(readyAis.length)]
+  const readyAis = ais.filter(isReadyToReply)
+  const ai = mentionedAi ?? (readyAis.length > 0 ? readyAis[randomInt(readyAis.length)] : undefined)
+  if (!ai) return
+  if (busyGameIds.has(gameId)) return queuePendingMessage(gameId, content)
+
   busyGameIds.add(gameId)
   replyAsAi(ai)
     .catch((err) => logError('AI reply failed', err, { gameId, playerId: ai.id }))
-    .finally(() => busyGameIds.delete(gameId))
+    .finally(() => {
+      busyGameIds.delete(gameId)
+      replayPendingMessages(gameId)
+    })
 }

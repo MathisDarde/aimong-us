@@ -2,7 +2,7 @@ import { z } from 'zod'
 import { env } from './env.js'
 
 const LLM_TIMEOUT_MS = 30_000
-const LLM_MAX_TOKENS = 2_048
+const LLM_MAX_TOKENS = 200
 const LLM_TEMPERATURE = 0.9
 
 export type LlmMessage = { role: 'system' | 'user' | 'assistant'; content: string }
@@ -36,6 +36,7 @@ export async function complete(messages: LlmMessage[]): Promise<string> {
       messages,
       max_tokens: LLM_MAX_TOKENS,
       temperature: LLM_TEMPERATURE,
+      reasoning_effort: 'none',
     }),
     signal: AbortSignal.timeout(LLM_TIMEOUT_MS),
   })

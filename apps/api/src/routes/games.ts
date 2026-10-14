@@ -104,7 +104,7 @@ async function handleChat(game: Game, player: Player, content: string, ws: WSCon
 
   await postMessage(game.id, player.id, content)
   if (game.status === 'playing' && !player.isAi) {
-    triggerAiReplies(game.id).catch((err) => logError('AI replies failed', err, { gameId: game.id }))
+    triggerAiReplies(game.id, content).catch((err) => logError('AI replies failed', err, { gameId: game.id }))
   }
 }
 

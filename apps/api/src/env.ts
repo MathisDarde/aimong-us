@@ -24,8 +24,8 @@ export const env = {
     .split(',')
     .map((proxy) => proxy.trim())
     .filter(Boolean),
-  AI_BASE_URL: process.env.AI_BASE_URL?.replace(/\/+$/, ''),
+  AI_BASE_URL: (process.env.AI_BASE_URL || 'https://api.scaleway.ai/v1').replace(/\/+$/, ''),
   AI_API_KEY: process.env.AI_API_KEY,
-  AI_MODEL: process.env.AI_MODEL || 'auto',
+  AI_MODEL: process.env.AI_MODEL || 'deepseek-v4.1-flash',
   FORCE_MAX_AIS: !isProduction && process.env.FORCE_MAX_AIS === 'true',
 }
