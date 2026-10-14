@@ -10,7 +10,7 @@ export const REACTION_EMOJIS = ['👍', '😂', '😮', '🤔', '🤖'] as const
 
 export type MessageReaction = { emoji: string; playerIds: string[] }
 
-const AI_REACTION_CHANCE_PERCENT = 40
+const AI_REACTION_CHANCE_PERCENT = 10
 const AI_REACTION_MIN_DELAY_MS = 1_500
 const AI_REACTION_MAX_DELAY_MS = 6_000
 const PERCENT = 100
@@ -69,17 +69,18 @@ export async function scheduleAiReactions(game: Game, message: { id: string; pla
     ),
   })
 
-  for (const ai of ais) {
-    if (ai.id === message.playerId || randomInt(PERCENT) >= AI_REACTION_CHANCE_PERCENT) continue
+  const reactor = ais.find(
+    (ai) => ai.id !== message.playerId && randomInt(PERCENT) < AI_REACTION_CHANCE_PERCENT,
+  )
+  if (!reactor) return
 
-    const emoji = REACTION_EMOJIS[randomInt(REACTION_EMOJIS.length)]
-    const delayMs = randomInt(AI_REACTION_MIN_DELAY_MS, AI_REACTION_MAX_DELAY_MS + 1)
-    setTimeout(() => {
-      addReaction(game.id, message.id, ai.id, emoji).catch((err) =>
-        logError('AI reaction failed', err, { gameId: game.id }),
-      )
-    }, delayMs)
-  }
+  const emoji = REACTION_EMOJIS[randomInt(REACTION_EMOJIS.length)]
+  const delayMs = randomInt(AI_REACTION_MIN_DELAY_MS, AI_REACTION_MAX_DELAY_MS + 1)
+  setTimeout(() => {
+    addReaction(game.id, message.id, reactor.id, emoji).catch((err) =>
+      logError('AI reaction failed', err, { gameId: game.id }),
+    )
+  }, delayMs)
 }
 
 export async function loadReactionsByMessage(messageIds: string[]) {
