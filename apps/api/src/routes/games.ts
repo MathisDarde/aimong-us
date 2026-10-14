@@ -3,7 +3,9 @@ import { and, eq, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
-import { scheduleAiArrivals, seatAiInLobby } from '../ai-players.js'
+import { triggerAiReplies } from '../ai-chat.js'
+import { fillMissingAis, minAiCount, scheduleAiArrivals } from '../ai-players.js'
+import { postMessage } from '../chat.js'
 import { db } from '../db/index.js'
 import {
   MAX_HUMANS,
@@ -11,7 +13,6 @@ import {
   MIN_HUMANS,
   MIN_PLAYERS,
   games,
-  messages,
   players,
   votes,
 } from '../db/schema.js'
@@ -101,16 +102,10 @@ async function handleChat(game: Game, player: Player, content: string, ws: WSCon
     return send(ws, { type: 'error', message: 'Eliminated players cannot chat' })
   }
 
-  const [message] = await db
-    .insert(messages)
-    .values({ gameId: game.id, playerId: player.id, content })
-    .returning({
-      id: messages.id,
-      playerId: messages.playerId,
-      content: messages.content,
-      createdAt: messages.createdAt,
-    })
-  broadcast(game.id, { type: 'chat', message })
+  await postMessage(game.id, player.id, content)
+  if (game.status === 'playing' && !player.isAi) {
+    triggerAiReplies(game.id).catch((err) => logError('AI replies failed', err, { gameId: game.id }))
+  }
 }
 
 async function handleVote(game: Game, player: Player, targetId: string, ws: WSContext) {
@@ -162,9 +157,10 @@ async function handleClientMessage(playerId: string, raw: unknown, ws: WSContext
 async function startLobbyGame(game: Game): Promise<Game | 'not_enough_players' | 'conflict'> {
   const seated = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
   const humanCount = seated.filter((player) => !player.isAi).length
-  if (humanCount < MIN_HUMANS || seated.length < MIN_PLAYERS) return 'not_enough_players'
+  const aiCount = Math.max(seated.length - humanCount, minAiCount())
+  if (humanCount < MIN_HUMANS || humanCount + aiCount < MIN_PLAYERS) return 'not_enough_players'
 
-  if (humanCount === seated.length) await seatAiInLobby(game.id)
+  await fillMissingAis(game.id)
 
   const [started] = await db
     .update(games)
