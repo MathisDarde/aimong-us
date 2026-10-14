@@ -8,8 +8,6 @@ type PlayerListProps = {
   meId: string | null
   votedPlayerIds: string[]
   speakerId: string | null
-  canVote: boolean
-  onVote: (targetId: string) => void
 }
 
 const ROLE_LABEL = { ai: 'AI', human: 'Human' } as const
@@ -20,22 +18,12 @@ function presenceLabel(player: PublicPlayer, speakerId: string | null) {
   return player.online ? 'Online' : 'Offline'
 }
 
-export function PlayerList({
-  players,
-  meId,
-  votedPlayerIds,
-  speakerId,
-  canVote,
-  onVote,
-}: PlayerListProps) {
-  const hasVoted = meId !== null && votedPlayerIds.includes(meId)
-
+export function PlayerList({ players, meId, votedPlayerIds, speakerId }: PlayerListProps) {
   return (
     <ul className="m-0 flex list-none flex-col gap-3 p-0">
       {players.map((player, index) => {
         const { color, disguise } = playerLook(index)
         const isMe = player.id === meId
-        const votable = canVote && !hasVoted && !isMe && !player.isEliminated
 
         return (
           <li
@@ -66,15 +54,6 @@ export function PlayerList({
               >
                 {ROLE_LABEL[player.role]}
               </span>
-            )}
-            {votable && (
-              <button
-                type="button"
-                onClick={() => onVote(player.id)}
-                className="cursor-pointer rounded-full border-3 border-ink bg-rose px-3 py-1 font-display text-sm font-semibold text-ink"
-              >
-                Vote
-              </button>
             )}
           </li>
         )
