@@ -1,11 +1,11 @@
 import { upgradeWebSocket } from '@hono/node-server'
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq, ne, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { createMiddleware } from 'hono/factory'
 import type { WSContext } from 'hono/ws'
 import { drawAiCount, pickAiNicknames } from '../ai-players.js'
 import { db } from '../db/index.js'
-import { MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from '../db/schema.js'
+import { MAX_HUMANS, MAX_PLAYERS, MIN_HUMANS, games, messages, players, votes } from '../db/schema.js'
 import { env } from '../env.js'
 import {
   HOST_SEAT,
@@ -156,6 +156,10 @@ async function seatAiPlayers(game: Game): Promise<Game | 'not_enough_players' | 
     drawAiCount(humans.length),
     humans.map((human) => human.nickname),
   )
+  const takenSeats = new Set(humans.map((human) => human.seat))
+  const freeSeats = Array.from({ length: MAX_PLAYERS }, (_, index) => index + 1).filter(
+    (seat) => !takenSeats.has(seat),
+  )
   try {
     const [[started]] = await db.batch([
       db
@@ -168,7 +172,7 @@ async function seatAiPlayers(game: Game): Promise<Game | 'not_enough_players' | 
           gameId: game.id,
           nickname,
           isAi: true,
-          seat: humans.length + index + 1,
+          seat: freeSeats[index],
         })),
       ),
     ])
@@ -177,6 +181,16 @@ async function seatAiPlayers(game: Game): Promise<Game | 'not_enough_players' | 
     if (pgErrorCode(err) === PG_UNIQUE_VIOLATION) return 'conflict'
     throw err
   }
+}
+
+async function stopGame(game: Game): Promise<Game | undefined> {
+  const [stopped] = await db
+    .update(games)
+    .set({ status: 'finished', winner: null })
+    .where(and(eq(games.id, game.id), ne(games.status, 'finished')))
+    .returning()
+  if (stopped) broadcast(game.id, { type: 'game_state', state: await loadGameState(stopped) })
+  return stopped
 }
 
 async function seatPlayer(
@@ -191,7 +205,11 @@ async function seatPlayer(
           gameId: game.id,
           userId: user.id,
           nickname: user.name,
-          seat: sql`(select coalesce(max(${players.seat}), 0) + 1 from ${players} where ${players.gameId} = ${game.id})`,
+          seat: sql`coalesce(
+            (select min(s) from generate_series(1, ${MAX_HUMANS}) s
+             where s not in (select ${players.seat} from ${players} where ${players.gameId} = ${game.id})),
+            ${MAX_HUMANS + 1}
+          )`,
         })
         .onConflictDoNothing({ target: [players.gameId, players.userId] })
         .returning()
@@ -268,6 +286,28 @@ export const gamesRoutes = new Hono<AuthEnv>()
     const state = await loadGameState(started)
     broadcast(game.id, { type: 'game_state', state })
     return c.json({ state })
+  })
+  .post('/:code/stop', validate('param', gameCodeParam), requirePlayer, async (c) => {
+    if (c.get('player').seat !== HOST_SEAT) {
+      return c.json({ error: 'Only the host can stop the game' }, 403)
+    }
+    const stopped = await stopGame(c.get('game'))
+    if (!stopped) return c.json({ error: 'The game is already over' }, 409)
+    return c.json({ state: await loadGameState(stopped) })
+  })
+  .post('/:code/leave', validate('param', gameCodeParam), requirePlayer, async (c) => {
+    const game = c.get('game')
+    const player = c.get('player')
+    if (game.status !== 'lobby') return c.body(null, 204)
+
+    if (player.seat === HOST_SEAT) {
+      await stopGame(game)
+      return c.body(null, 204)
+    }
+
+    await db.delete(players).where(eq(players.id, player.id))
+    broadcast(game.id, { type: 'game_state', state: await loadGameState(game) })
+    return c.body(null, 204)
   })
   .get('/:code', validate('param', gameCodeParam), async (c) => {
     const game = await findGameByCode(c.req.param('code'))

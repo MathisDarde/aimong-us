@@ -1,4 +1,4 @@
-import { Link, Navigate, useParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { ChatPanel } from '@/components/game/chat-panel'
 import { PlayerList } from '@/components/game/player-list'
 import { Logo } from '@/components/landing/logo'
@@ -14,11 +14,16 @@ const CONNECTION_NOTICE: Record<RoomStatus, string> = {
   error: '',
 }
 
+const STOP_CONFIRMATION = 'Stop the game for everyone?'
+const HOST_LEAVE_CONFIRMATION = 'You are the host: leaving will close the room for everyone. Leave?'
+
 function statusLabel({ game }: GameState) {
   if (game.status === 'lobby') return 'Waiting for players'
   if (game.status === 'playing') return `Round ${game.round}: chat`
   if (game.status === 'voting') return `Round ${game.round}: vote for the AI`
-  return game.winner === 'ais' ? 'The AIs win!' : 'The humans win!'
+  if (game.winner === 'ais') return 'The AIs win!'
+  if (game.winner === 'humans') return 'The humans win!'
+  return 'Game stopped by the host'
 }
 
 export function GamePage() {
@@ -28,7 +33,9 @@ export function GamePage() {
 }
 
 function GameRoom({ code }: { code: string }) {
-  const { state, messages, me, status, error, notice, send, start } = useGameRoom(code)
+  const { state, messages, me, status, error, notice, send, start, stop, leave } =
+    useGameRoom(code)
+  const navigate = useNavigate()
 
   if (status === 'error') {
     return (
@@ -50,8 +57,19 @@ function GameRoom({ code }: { code: string }) {
   const live = status === 'live'
   const canChat = live && state.game.status !== 'finished' && !myPlayer?.isEliminated
   const canVote = live && state.game.status === 'voting' && !myPlayer?.isEliminated
-  const isHostInLobby = state.game.status === 'lobby' && state.hostId === me
+  const isHost = state.hostId === me
+  const isHostInLobby = state.game.status === 'lobby' && isHost
+  const canStop = isHost && state.game.status !== 'finished'
   const hasEnoughPlayers = state.players.length >= state.minPlayersToStart
+
+  async function handleLeave() {
+    if (isHostInLobby && !window.confirm(HOST_LEAVE_CONFIRMATION)) return
+    if (await leave()) void navigate(ROUTES.play)
+  }
+
+  function handleStop() {
+    if (window.confirm(STOP_CONFIRMATION)) void stop()
+  }
 
   return (
     <div className="min-h-svh bg-nuit px-[clamp(16px,4vw,40px)] py-5">
@@ -59,11 +77,19 @@ function GameRoom({ code }: { code: string }) {
         <Link to={ROUTES.play}>
           <Logo className="text-[28px]" />
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <span className="font-semibold">{statusLabel(state)}</span>
           <span className="rounded-full bg-ink px-4 py-1.5 font-display text-lg font-semibold tracking-[4px]">
             {state.game.code}
           </span>
+          {canStop && (
+            <Button variant="accent" size="sm" onClick={handleStop} disabled={!live}>
+              Stop game
+            </Button>
+          )}
+          <Button variant="ghost" size="sm" onClick={handleLeave}>
+            Leave
+          </Button>
         </div>
       </header>
 

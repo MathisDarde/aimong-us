@@ -24,6 +24,17 @@ export function startGame(code: string) {
   })
 }
 
+export function stopGame(code: string) {
+  return apiFetch<{ state: GameState }>(`/api/games/${code}/stop`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+  })
+}
+
+export function leaveGame(code: string) {
+  return apiFetch<null>(`/api/games/${code}/leave`, { method: 'POST', headers: JSON_HEADERS })
+}
+
 export async function loadGameSnapshot(code: string): Promise<GameSnapshot> {
   const snapshot = await fetchGame(code)
   if (snapshot.me) return snapshot

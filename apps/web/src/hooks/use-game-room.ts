@@ -5,8 +5,10 @@ import {
   WEBSOCKET_BEARER_PROTOCOL,
   fetchGame,
   gameSocketUrl,
+  leaveGame,
   loadGameSnapshot,
   startGame,
+  stopGame,
 } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
 
@@ -157,5 +159,26 @@ export function useGameRoom(code: string) {
     }
   }, [code])
 
-  return { state, messages, me, status, error, notice, send, start }
+  const stop = useCallback(async () => {
+    setNotice(null)
+    try {
+      const { state: stoppedState } = await stopGame(code)
+      setState(stoppedState)
+    } catch (err) {
+      setNotice(err instanceof ApiError ? err.message : 'Could not stop the game')
+    }
+  }, [code])
+
+  const leave = useCallback(async () => {
+    setNotice(null)
+    try {
+      await leaveGame(code)
+      return true
+    } catch (err) {
+      setNotice(err instanceof ApiError ? err.message : 'Could not leave the game')
+      return false
+    }
+  }, [code])
+
+  return { state, messages, me, status, error, notice, send, start, stop, leave }
 }
