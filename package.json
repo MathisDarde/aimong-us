@@ -11,7 +11,8 @@
     "db:generate": "pnpm --filter @aimong-us/api db:generate",
     "db:migrate": "pnpm --filter @aimong-us/api db:migrate",
     "db:push": "pnpm --filter @aimong-us/api db:push",
-    "db:studio": "pnpm --filter @aimong-us/api db:studio"
+    "db:studio": "pnpm --filter @aimong-us/api db:studio",
+    "deploy:aws": "sh scripts/deploy-lightsail.sh"
   },
   "devDependencies": {
     "concurrently": "^10.0.6"

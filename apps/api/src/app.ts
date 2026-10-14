@@ -8,6 +8,7 @@ import { auth } from './auth.js'
 import { env } from './env.js'
 import { logError } from './logger.js'
 import { accessLog } from './middleware/access-log.js'
+import { webApp } from './middleware/web-app.js'
 import { gamesRoutes } from './routes/games.js'
 import { health } from './routes/health.js'
 import { me } from './routes/me.js'
@@ -25,6 +26,7 @@ export const app = new Hono()
   .use('*', requestId({ headerName: '' }))
   .use('*', accessLog)
   .use('*', secureHeaders())
+  .use('*', webApp)
   .use(
     '/api/*',
     cors({
