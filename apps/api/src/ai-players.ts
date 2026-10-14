@@ -4,6 +4,7 @@ import { db } from "./db/index.js";
 import { MAX_AIS, MAX_PLAYERS, MIN_AIS, games, players } from "./db/schema.js";
 import { toPublicPlayer } from "./game-state.js";
 import { logError } from "./logger.js";
+import { pickNickname } from "./nicknames.js";
 import {
   PG_NOT_NULL_VIOLATION,
   PG_UNIQUE_VIOLATION,
@@ -11,51 +12,16 @@ import {
 } from "./pg-errors.js";
 import { broadcast } from "./rooms.js";
 
-const AI_NICKNAMES = [
-  "Alex",
-  "Sam",
-  "Jordan",
-  "Robin",
-  "Charlie",
-  "Morgan",
-  "Casey",
-  "Riley",
-  "Jamie",
-  "Taylor",
-  "Quinn",
-  "Avery",
-];
-
 const AI_ARRIVAL_MIN_GAP_MS = 3_000;
 const AI_ARRIVAL_MAX_GAP_MS = 25_000;
 const AI_SEAT_ATTEMPTS = 3;
-
-export function pickAiNicknames(
-  count: number,
-  takenNicknames: string[],
-): string[] {
-  const taken = new Set(
-    takenNicknames.map((nickname) => nickname.toLowerCase()),
-  );
-  const available = AI_NICKNAMES.filter(
-    (nickname) => !taken.has(nickname.toLowerCase()),
-  );
-  const picked: string[] = [];
-  while (picked.length < count && available.length > 0) {
-    picked.push(...available.splice(randomInt(available.length), 1));
-  }
-  return picked;
-}
 
 export async function seatAiInLobby(gameId: string): Promise<void> {
   for (let attempt = 0; attempt < AI_SEAT_ATTEMPTS; attempt++) {
     const seated = await db.query.players.findMany({
       where: eq(players.gameId, gameId),
     });
-    const [nickname] = pickAiNicknames(
-      1,
-      seated.map((player) => player.nickname),
-    );
+    const nickname = pickNickname(seated.map((player) => player.nickname));
     if (!nickname) return;
 
     try {

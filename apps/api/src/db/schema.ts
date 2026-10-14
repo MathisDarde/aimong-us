@@ -141,6 +141,7 @@ export const players = pgTable(
   (t) => [
     unique('players_game_user_unique').on(t.gameId, t.userId),
     unique('players_game_seat_unique').on(t.gameId, t.seat),
+    unique('players_game_nickname_unique').on(t.gameId, t.nickname),
     check('players_seat_range', sql`${t.seat} between 1 and ${sql.raw(String(MAX_PLAYERS))}`),
     check('players_human_seat_range', sql`${t.isAi} or ${t.seat} <= ${sql.raw(String(MAX_HUMANS))}`),
   ],

@@ -31,6 +31,7 @@ import {
 } from '../game-state.js'
 import { requireAuth, type AuthEnv, type AuthUser } from '../middleware/auth.js'
 import { logError } from '../logger.js'
+import { pickNickname } from '../nicknames.js'
 import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-errors.js'
 import { createRateLimiter } from '../rate-limit.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
@@ -180,13 +181,17 @@ async function seatPlayer(
   user: AuthUser,
 ): Promise<{ player: Player; created: boolean } | 'full'> {
   for (let attempt = 0; attempt < MAX_PLAYERS; attempt++) {
+    const seated = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
+    const nickname = pickNickname(seated.map((player) => player.nickname))
+    if (!nickname) return 'full'
+
     try {
       const [inserted] = await db
         .insert(players)
         .values({
           gameId: game.id,
           userId: user.id,
-          nickname: user.name,
+          nickname,
           seat: sql`coalesce(
             (select min(s) from generate_series(1, ${MAX_HUMANS}) s
              where s not in (select ${players.seat} from ${players} where ${players.gameId} = ${game.id})),
@@ -221,9 +226,11 @@ export const gamesRoutes = new Hono<AuthEnv>()
       if (await findGameByCode(code)) continue
 
       const gameId = crypto.randomUUID()
+      const nickname = pickNickname([])
+      if (!nickname) throw new Error('The nickname pool is empty')
       const [[game], [player]] = await db.batch([
         db.insert(games).values({ id: gameId, code }).returning(),
-        db.insert(players).values({ gameId, userId: user.id, nickname: user.name, seat: 1 }).returning(),
+        db.insert(players).values({ gameId, userId: user.id, nickname, seat: 1 }).returning(),
       ])
       scheduleAiArrivals(game.id)
       return c.json({ state: await loadGameState(game), me: player.id }, 201)
