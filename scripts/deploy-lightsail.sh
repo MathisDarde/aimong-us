@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the app image and deploys it to an Amazon Lightsail container service.
 # Requires AWS CLI v2, lightsailctl, Docker (or Podman), and DATABASE_URL and
-# BETTER_AUTH_SECRET (plus optional AI_API_KEY) either exported or defined in a
+# BETTER_AUTH_SECRET (plus optional AI_API_KEY, AI_BASE_URL, AI_MODEL) either exported or defined in a
 # .env.production file at the repo root.
 set -eu
 
@@ -45,9 +45,12 @@ IMAGE=$(env -u AWS_PROFILE DOCKER_API_VERSION=1.46 aws lightsail push-container-
 if [ -z "$IMAGE" ]; then echo "Image push failed" >&2; exit 1; fi
 echo "Pushed $IMAGE"
 
-# Optional: without a key the AI players pass their turn
+# Optional AI settings: without AI_API_KEY the AI players pass their turn
 AI_ENV=""
-if [ -n "${AI_API_KEY:-}" ]; then AI_ENV="\"AI_API_KEY\":\"$AI_API_KEY\","; fi
+for name in AI_API_KEY AI_BASE_URL AI_MODEL; do
+  value=$(printenv "$name" || true)
+  if [ -n "$value" ]; then AI_ENV="$AI_ENV\"$name\":\"$value\","; fi
+done
 
 lightsail create-container-service-deployment --service-name "$SERVICE" \
   --containers "{\"app\":{\"image\":\"$IMAGE\",\"ports\":{\"$APP_PORT\":\"HTTP\"},\"environment\":{
