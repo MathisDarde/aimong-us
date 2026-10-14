@@ -37,6 +37,3 @@ apps/api/dist
 # Claude worktrees
 .claude/worktrees
 
-# CDK
-infra/cdk.out
-infra/cdk.context.json

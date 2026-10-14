@@ -4,5 +4,3 @@
 **/.env.*
 .git
 .claude
-infra
-apps/web

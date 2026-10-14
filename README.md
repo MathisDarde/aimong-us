@@ -37,7 +37,6 @@ In dev the web app proxies `/api/*` to the API, so everything goes through http:
 apps/
   api/   Hono + Drizzle + Better Auth (schema: user, session, account, verification, rate_limit, games, players, messages, votes)
   web/   Vite + React
-infra/   AWS CDK stack (CloudFront + S3 for the web app, ECS Fargate + internal ALB for the API)
 ```
 
 ## Game rules
@@ -59,30 +58,26 @@ Game rooms and online presence live in the API process memory, so the API must r
 
 ## Deploying to AWS
 
-The `infra` workspace deploys everything to `eu-north-1` with AWS CDK:
+Production runs as a single container on an Amazon Lightsail container service in `eu-north-1`. The image (root `Dockerfile`) builds the web app and the API; the API serves the built web app next to `/api/*`, so everything stays on one origin.
 
-- **Web**: built SPA in a private S3 bucket behind CloudFront.
-- **API**: one ECS Fargate task (arm64) behind an internal ALB that only CloudFront reaches through a VPC origin. CloudFront routes `/api/*`, WebSockets included, to it, so the browser sees a single origin.
-- **AI**: the task role may call Bedrock with `eu.amazon.nova-micro-v1:0`, exposed as `BEDROCK_MODEL_ID`.
-
-One-time setup (replace the values):
+Prerequisites: AWS CLI v2 signed in with `aws login --profile aimong-us`, `lightsailctl` (`brew install aws/tap/lightsailctl`), Docker or Podman, and a `.env.production` file at the repo root:
 
 ```bash
-aws ssm put-parameter --profile aimong-us --region eu-north-1 --type SecureString \
-  --name /aimong-us/database-url --value 'postgresql://...'
-aws ssm put-parameter --profile aimong-us --region eu-north-1 --type SecureString \
-  --name /aimong-us/better-auth-secret --value "$(openssl rand -base64 48)"
-DATABASE_URL='postgresql://...' pnpm db:migrate
-cd infra && pnpm exec cdk bootstrap --profile aimong-us
+DATABASE_URL=postgresql://...
+BETTER_AUTH_SECRET=...
+# Optional, lets AI players write messages
+ANTHROPIC_API_KEY=...
 ```
 
-Deploy (needs Docker or Podman to build the API image):
+Then:
 
 ```bash
-cd infra && pnpm run deploy --profile aimong-us
+pnpm deploy:aws
 ```
 
-The site URL is printed as the `Url` stack output.
+Pushing to `main` also deploys automatically through `.github/workflows/deploy.yml`. It needs four repository secrets: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments), `DATABASE_URL` and `BETTER_AUTH_SECRET`, plus the optional `ANTHROPIC_API_KEY` that lets AI players write messages.
+
+The first run creates the container service. Each run builds the image, pushes it, deploys it and prints the public URL. Run `pnpm db:migrate` against the production database before deploying code that needs new migrations.
 
 ## Branches
 

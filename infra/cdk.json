@@ -1,4 +1,0 @@
-{
-  "app": "tsx bin/app.ts",
-  "output": "cdk.out"
-}

@@ -18,6 +18,7 @@ export const env = {
   DATABASE_URL: required('DATABASE_URL'),
   PORT: Number(process.env.PORT ?? 3000),
   WEB_ORIGIN: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
+  STATIC_DIR: process.env.STATIC_DIR,
   BETTER_AUTH_SECRET,
   BETTER_AUTH_URL: process.env.BETTER_AUTH_URL ?? process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   TRUSTED_PROXIES: (process.env.TRUSTED_PROXIES ?? '')
