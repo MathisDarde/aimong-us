@@ -72,6 +72,7 @@ function GameRoom({ code }: { code: string }) {
   const myTurn = speakerId !== null && speakerId === me
   const chatOpen = isChatOpen(state.game.status, myTurn)
   const canChat = live && chatOpen && !myPlayer?.isEliminated
+  const canReact = live && state.game.status !== 'finished' && !myPlayer?.isEliminated
   const typingNames = state.players
     .filter((player) => typingIds.includes(player.id) && player.id !== me)
     .map((player) => player.nickname)
@@ -149,6 +150,7 @@ function GameRoom({ code }: { code: string }) {
             players={state.players}
             meId={me}
             canSend={canChat}
+            canReact={canReact}
             closedReason={state.game.status === 'playing' ? 'Wait for your turn' : 'Chat is closed'}
             typingNames={typingNames}
             onSend={(content) => send({ type: 'chat', content })}
