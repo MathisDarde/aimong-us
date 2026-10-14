@@ -283,7 +283,42 @@ importers:
         specifier: ^8.3.0
         version: 8.3.4(@types/node@24.19.2)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)
 
+  infra:
+    dependencies:
+      aws-cdk-lib:
+        specifier: ^2.273.0
+        version: 2.273.0(constructs@10.8.1)
+      constructs:
+        specifier: ^10.8.1
+        version: 10.8.1
+    devDependencies:
+      '@types/node':
+        specifier: ^24.19.2
+        version: 24.19.2
+      aws-cdk:
+        specifier: ^2.1145.0
+        version: 2.1145.0
+      tsx:
+        specifier: ^4.23.15
+        version: 4.23.15
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
+
 packages:
+
+  '@aws-cdk/asset-awscli-v1@2.2.292':
+    resolution: {integrity: sha512-d4aMFsAFj19FtxVyw8IzlUKv5Zu4sIvgnEjI2IU6IWBJgVbJ4aFnadANqYa+6MwB1CQbGOg0jh8WE77M+Nb/9A==}
+
+  '@aws-cdk/asset-node-proxy-agent-v6@2.1.3':
+    resolution: {integrity: sha512-98We1QWfin9vtuuQtNFhIIAEWb8CreyYTAP0Vn8HqSBoNiFJM9nZgifJeQawT9Wq0NX1HCNFlxCyTccIrK1PSA==}
+
+  '@aws-cdk/cloud-assembly-schema@54.26.0':
+    resolution: {integrity: sha512-zYI3XhQ/bpuSXuPaF77f7u2q6rZBPwdrPh8a0v+e/B3IxbRQAtQv0fmacQ8uYh9RPVuIVnExE6IsFJBSALH7BA==}
+    engines: {node: '>= 18.0.0'}
+    bundledDependencies:
+      - jsonschema
+      - semver
 
   '@better-auth/core@1.7.7':
     resolution: {integrity: sha512-srgFzHEjB2WWlokFz1i4BfG41sNhsA105Pukgqu6RrEh5A+LSkzf1mCHydVipkjt9l5qswtBMi7IL6ouHbZL4Q==}
@@ -1940,6 +1975,30 @@ packages:
     resolution: {integrity: sha512-ik3ZgC9dY/lYVVM++OISsaYDeg1tb0VtP5uL3ouh1koGOaUMDPpbFIei4JkFimWUFPn90sbMNMXQAIVOlnYKJA==}
     engines: {node: '>=10'}
 
+  aws-cdk-lib@2.273.0:
+    resolution: {integrity: sha512-H7hBQHnKn0ZBbpnWRL1Hn0GunSQUsYaLqOk2xIqV0HWr3qbYMwTEZT0HbJBUSxeUdzp1nz0AE2LN3K6qvYr4Zg==}
+    engines: {node: '>= 20.0.0'}
+    peerDependencies:
+      constructs: ^10.5.0
+    bundledDependencies:
+      - '@aws/cloudformation-validate'
+      - '@balena/dockerignore'
+      - '@aws-cdk/cloud-assembly-api'
+      - case
+      - fs-extra
+      - ignore
+      - jsonschema
+      - minimatch
+      - punycode
+      - semver
+      - yaml
+      - mime-types
+
+  aws-cdk@2.1145.0:
+    resolution: {integrity: sha512-kV3vJCQX5XvlyVvmRHH79Nn2kOmDicN1WSFGkSaZXsNaDdNj2Re25yehsp+L2ixv0VCm0/HLLmYSoehmVPDkJg==}
+    engines: {node: '>= 18.0.0'}
+    hasBin: true
+
   better-auth@1.7.7:
     resolution: {integrity: sha512-Zhgxi/c5ylmfB/sX+nwnBbsFf/j6k0L8DvL6CJXZSrXgxc5pPMC/e7j812zNd4L4B4ELmdURCPw3X8nAOUdcjw==}
     peerDependencies:
@@ -2029,6 +2088,9 @@ packages:
     resolution: {integrity: sha512-qgICXXFp2/3nAebRLmxcINKEXM1mLK3ij/y31P02VTs/KIkddIeC05n73DxOXsXMB9LFSqNU1/na3lDlOhcbIw==}
     engines: {node: '>=22'}
     hasBin: true
+
+  constructs@10.8.1:
+    resolution: {integrity: sha512-98yGXYyhePqPYh3cYu8nzBERmAhC0DONe3UD03okK0nehZ7hYP4wgZuf02a04+uOWxnTJ5Rpp5m0GRNpwyLGGA==}
 
   cookie-es@3.1.1:
     resolution: {integrity: sha512-UaXxwISYJPTr9hwQxMFYZ7kNhSXboMXP+Z3TRX6f1/NyaGPfuNUZOWP1pUEb75B2HjfklIYLVRfWiFZJyC6Npg==}
@@ -2657,6 +2719,12 @@ packages:
     resolution: {integrity: sha512-4UmzQUF5fxvfcYHlbjBmejU+w+hbDnWFx4aS8kBx7nPBHcO2SqPbpAG8snbdg+Xse4pRefR98hgjFgIMCI/UhA==}
 
 snapshots:
+
+  '@aws-cdk/asset-awscli-v1@2.2.292': {}
+
+  '@aws-cdk/asset-node-proxy-agent-v6@2.1.3': {}
+
+  '@aws-cdk/cloud-assembly-schema@54.26.0': {}
 
   '@better-auth/core@1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@4.6.6))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.5)':
     dependencies:
@@ -3965,6 +4033,15 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
+  aws-cdk-lib@2.273.0(constructs@10.8.1):
+    dependencies:
+      '@aws-cdk/asset-awscli-v1': 2.2.292
+      '@aws-cdk/asset-node-proxy-agent-v6': 2.1.3
+      '@aws-cdk/cloud-assembly-schema': 54.26.0
+      constructs: 10.8.1
+
+  aws-cdk@2.1145.0: {}
+
   better-auth@1.7.7(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@neondatabase/serverless@1.2.0)(kysely@0.29.6))(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     dependencies:
       '@better-auth/core': 1.7.7(@better-auth/utils@0.4.2)(@better-fetch/fetch@1.3.2)(better-call@1.4.0(zod@4.6.6))(jose@6.2.12)(kysely@0.29.6)(nanostores@1.5.5)
@@ -4025,6 +4102,8 @@ snapshots:
       supports-color: 10.2.2
       tree-kill: 1.2.2
       yargs: 18.0.0
+
+  constructs@10.8.1: {}
 
   cookie-es@3.1.1: {}
 

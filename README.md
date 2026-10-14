@@ -37,6 +37,7 @@ In dev the web app proxies `/api/*` to the API, so everything goes through http:
 apps/
   api/   Hono + Drizzle + Better Auth (schema: user, session, account, verification, rate_limit, games, players, messages, votes)
   web/   Vite + React
+infra/   AWS CDK stack (CloudFront + S3 for the web app, ECS Fargate + internal ALB for the API)
 ```
 
 ## Security notes
@@ -47,6 +48,33 @@ apps/
 ## Deployment constraints
 
 Game rooms and online presence live in the API process memory, so the API must run as a single instance until they move to a shared store.
+
+## Deploying to AWS
+
+The `infra` workspace deploys everything to `eu-north-1` with AWS CDK:
+
+- **Web**: built SPA in a private S3 bucket behind CloudFront.
+- **API**: one ECS Fargate task (arm64) behind an internal ALB that only CloudFront reaches through a VPC origin. CloudFront routes `/api/*`, WebSockets included, to it, so the browser sees a single origin.
+- **AI**: the task role may call Bedrock with `eu.amazon.nova-micro-v1:0`, exposed as `BEDROCK_MODEL_ID`.
+
+One-time setup (replace the values):
+
+```bash
+aws ssm put-parameter --profile aimong-us --region eu-north-1 --type SecureString \
+  --name /aimong-us/database-url --value 'postgresql://...'
+aws ssm put-parameter --profile aimong-us --region eu-north-1 --type SecureString \
+  --name /aimong-us/better-auth-secret --value "$(openssl rand -base64 48)"
+DATABASE_URL='postgresql://...' pnpm db:migrate
+cd infra && pnpm exec cdk bootstrap --profile aimong-us
+```
+
+Deploy (needs Docker or Podman to build the API image):
+
+```bash
+cd infra && pnpm run deploy --profile aimong-us
+```
+
+The site URL is printed as the `Url` stack output.
 
 ## Branches
 
