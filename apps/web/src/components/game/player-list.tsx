@@ -12,6 +12,8 @@ type PlayerListProps = {
   onVote: (targetId: string) => void
 }
 
+const ROLE_LABEL = { ai: 'AI', human: 'Human' } as const
+
 function presenceLabel(player: PublicPlayer, speakerId: string | null) {
   if (player.id === speakerId) return 'Speaking'
   if (player.isEliminated) return 'Eliminated'
@@ -55,6 +57,16 @@ export function PlayerList({
                 {votedPlayerIds.includes(player.id) && ' · voted'}
               </span>
             </div>
+            {player.role && (
+              <span
+                className={cn(
+                  '-rotate-6 rounded-lg border-3 px-2 font-display text-sm font-bold tracking-[1.5px]',
+                  player.role === 'ai' ? 'border-menthe text-menthe' : 'border-rose text-rose',
+                )}
+              >
+                {ROLE_LABEL[player.role]}
+              </span>
+            )}
             {votable && (
               <button
                 type="button"
