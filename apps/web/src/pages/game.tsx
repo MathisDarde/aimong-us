@@ -144,6 +144,7 @@ function GameRoom({ code }: { code: string }) {
             typingNames={typingNames}
             onSend={(content) => send({ type: 'chat', content })}
             onTyping={() => send({ type: 'typing' })}
+            onReact={(messageId, emoji) => send({ type: 'react', messageId, emoji })}
           />
           {!live && <p className="m-0 text-sm opacity-80">{CONNECTION_NOTICE[status]}</p>}
           {notice && (
