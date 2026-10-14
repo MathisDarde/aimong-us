@@ -3,6 +3,7 @@ import { ChatPanel } from '@/components/game/chat-panel'
 import { PlayerList } from '@/components/game/player-list'
 import { PhaseBanner } from '@/components/game/phase-banner'
 import { ThemeCard } from '@/components/game/theme-card'
+import { VotePanel } from '@/components/game/vote-panel'
 import { Logo } from '@/components/landing/logo'
 import { Button } from '@/components/ui/button'
 import { useCountdown } from '@/hooks/use-countdown'
@@ -76,7 +77,8 @@ function GameRoom({ code }: { code: string }) {
   const typingNames = state.players
     .filter((player) => typingIds.includes(player.id) && player.id !== me)
     .map((player) => player.nickname)
-  const canVote = live && state.game.status === 'voting' && !myPlayer?.isEliminated
+  const isVoting = state.game.status === 'voting'
+  const canVote = live && isVoting && !myPlayer?.isEliminated
   const isHost = state.hostId === me
   const isHostInLobby = state.game.status === 'lobby' && isHost
   const canStop = isHost && state.game.status !== 'finished'
@@ -114,6 +116,19 @@ function GameRoom({ code }: { code: string }) {
       </header>
 
       <main className="mx-auto flex max-w-[1280px] flex-wrap items-start gap-[clamp(24px,4vw,48px)]">
+        {isVoting && (
+          <div className="basis-full">
+            <VotePanel
+              players={state.players}
+              meId={me}
+              votedPlayerIds={state.votedPlayerIds}
+              secondsLeft={secondsLeft}
+              canVote={canVote}
+              eliminated={myPlayer?.isEliminated ?? false}
+              onVote={(targetId) => send({ type: 'vote', targetId })}
+            />
+          </div>
+        )}
         <section className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
           <h2 className="m-0 font-display text-2xl font-bold">
             Players {state.players.length}/{state.maxPlayers}
@@ -123,8 +138,6 @@ function GameRoom({ code }: { code: string }) {
             meId={me}
             votedPlayerIds={state.votedPlayerIds}
             speakerId={speakerId}
-            canVote={canVote}
-            onVote={(targetId) => send({ type: 'vote', targetId })}
           />
           {isHostInLobby && (
             <div className="flex flex-col gap-2">
@@ -144,7 +157,7 @@ function GameRoom({ code }: { code: string }) {
           {state.theme && state.game.status !== 'finished' && (
             <ThemeCard theme={state.theme} round={state.game.round} maxRounds={state.maxRounds} />
           )}
-          <PhaseBanner state={state} meId={me} secondsLeft={secondsLeft} />
+          {!isVoting && <PhaseBanner state={state} meId={me} secondsLeft={secondsLeft} />}
           <ChatPanel
             messages={messages}
             players={state.players}
