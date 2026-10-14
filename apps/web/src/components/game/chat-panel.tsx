@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import type { ChatMessage, PublicPlayer } from '@/lib/game-types'
+import { ReactionBar } from './reaction-bar'
 import { TypingIndicator } from './typing-indicator'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +17,7 @@ type ChatPanelProps = {
   typingNames: string[]
   onSend: (content: string) => void
   onTyping: () => void
+  onReact: (messageId: string, emoji: string) => void
 }
 
 export function ChatPanel({
@@ -27,8 +29,10 @@ export function ChatPanel({
   typingNames,
   onSend,
   onTyping,
+  onReact,
 }: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const [pickerMessageId, setPickerMessageId] = useState<string | null>(null)
   const lastTypingSentAt = useRef(0)
   const listRef = useRef<HTMLDivElement>(null)
 
@@ -53,6 +57,11 @@ export function ChatPanel({
     onTyping()
   }
 
+  function handleReact(messageId: string, emoji: string) {
+    onReact(messageId, emoji)
+    setPickerMessageId(null)
+  }
+
   function nicknameOf(playerId: string) {
     return players.find((player) => player.id === playerId)?.nickname ?? 'Unknown'
   }
@@ -74,6 +83,16 @@ export function ChatPanel({
               >
                 {message.content}
               </p>
+              <ReactionBar
+                reactions={message.reactions ?? []}
+                meId={meId}
+                disabled={!canSend}
+                pickerOpen={pickerMessageId === message.id}
+                onTogglePicker={() =>
+                  setPickerMessageId(pickerMessageId === message.id ? null : message.id)
+                }
+                onReact={(emoji) => handleReact(message.id, emoji)}
+              />
             </div>
           )
         })}

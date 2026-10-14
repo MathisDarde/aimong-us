@@ -23,11 +23,22 @@ export type GameState = {
   turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 
+export type MessageReaction = { emoji: string; playerIds: string[] }
+
 export type ChatMessage = {
   id: string
   playerId: string
   content: string
   createdAt: string
+  reactions?: MessageReaction[]
+}
+
+export type ReactionEvent = {
+  type: 'reaction'
+  messageId: string
+  playerId: string
+  emoji: string
+  active: boolean
 }
 
 export type GameSnapshot = {
@@ -38,6 +49,7 @@ export type GameSnapshot = {
 
 export type ServerEvent =
   | { type: 'chat'; message: ChatMessage }
+  | ReactionEvent
   | { type: 'player_joined'; player: PublicPlayer }
   | { type: 'player_left'; playerId: string }
   | { type: 'game_state'; state: GameState }
@@ -48,3 +60,4 @@ export type ClientEvent =
   | { type: 'chat'; content: string }
   | { type: 'vote'; targetId: string }
   | { type: 'typing' }
+  | { type: 'react'; messageId: string; emoji: string }

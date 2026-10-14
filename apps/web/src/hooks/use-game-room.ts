@@ -11,6 +11,7 @@ import {
   stopGame,
 } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
+import { applyReaction } from '@/lib/reactions'
 
 const MAX_RECONNECT_ATTEMPTS = 8
 const RECONNECT_BASE_DELAY_MS = 1000
@@ -104,6 +105,10 @@ export function useGameRoom(code: string) {
       }
       if (event.type === 'typing') {
         startTyping(event.playerId)
+        return
+      }
+      if (event.type === 'reaction') {
+        setMessages((current) => applyReaction(current, event))
         return
       }
       if (event.type === 'error') {
