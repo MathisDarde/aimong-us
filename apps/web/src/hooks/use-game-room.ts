@@ -11,6 +11,7 @@ import {
   stopGame,
 } from '@/lib/game-api'
 import type { ChatMessage, ClientEvent, GameState, ServerEvent } from '@/lib/game-types'
+import { applyReaction } from '@/lib/reactions'
 
 const MAX_RECONNECT_ATTEMPTS = 8
 const RECONNECT_BASE_DELAY_MS = 1000
@@ -84,6 +85,10 @@ export function useGameRoom(code: string) {
     function handleEvent(event: ServerEvent) {
       if (event.type === 'chat') {
         setMessages((current) => mergeMessages(current, [event.message]))
+        return
+      }
+      if (event.type === 'reaction') {
+        setMessages((current) => applyReaction(current, event))
         return
       }
       if (event.type === 'error') {

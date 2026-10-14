@@ -126,6 +126,7 @@ function GameRoom({ code }: { code: string }) {
             meId={me}
             canSend={canChat}
             onSend={(content) => send({ type: 'chat', content })}
+            onReact={(messageId, emoji) => send({ type: 'react', messageId, emoji })}
           />
           {!live && <p className="m-0 text-sm opacity-80">{CONNECTION_NOTICE[status]}</p>}
           {notice && (
