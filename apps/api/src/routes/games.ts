@@ -36,7 +36,15 @@ import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-erro
 import { createRateLimiter } from '../rate-limit.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { validate } from '../validation.js'
-import { broadcast, joinRoom, leaveRoom, onlinePlayerIds, send, type Client } from '../rooms.js'
+import {
+  broadcast,
+  disconnectPlayer,
+  joinRoom,
+  leaveRoom,
+  onlinePlayerIds,
+  send,
+  type Client,
+} from '../rooms.js'
 
 const WS_POLICY_VIOLATION = 1008
 const GAME_CREATION_WINDOW_MS = 60_000
@@ -182,6 +190,7 @@ async function seatPlayer(
 ): Promise<{ player: Player; created: boolean } | 'full'> {
   for (let attempt = 0; attempt < MAX_PLAYERS; attempt++) {
     const seated = await db.query.players.findMany({ where: eq(players.gameId, game.id) })
+    if (seated.length >= MAX_PLAYERS) return 'full'
     const nickname = pickNickname(seated.map((player) => player.nickname))
     if (!nickname) return 'full'
 
@@ -296,6 +305,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
     }
 
     await db.delete(players).where(eq(players.id, player.id))
+    disconnectPlayer(game.id, player.id)
     broadcast(game.id, { type: 'game_state', state: await loadGameState(game) })
     return c.body(null, 204)
   })

@@ -10,6 +10,8 @@ export type ServerEvent =
 
 export type Client = { playerId: string; ws: WSContext }
 
+const WS_NORMAL_CLOSURE = 1000
+
 const rooms = new Map<string, Set<Client>>()
 
 export function joinRoom(gameId: string, client: Client) {
@@ -37,5 +39,11 @@ export function broadcast(gameId: string, event: ServerEvent) {
   const payload = JSON.stringify(event)
   for (const client of rooms.get(gameId) ?? []) {
     if (client.ws.readyState === 1) client.ws.send(payload)
+  }
+}
+
+export function disconnectPlayer(gameId: string, playerId: string) {
+  for (const client of rooms.get(gameId) ?? []) {
+    if (client.playerId === playerId) client.ws.close(WS_NORMAL_CLOSURE, 'Left the game')
   }
 }
