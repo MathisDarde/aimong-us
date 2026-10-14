@@ -1,31 +1,161 @@
-import { boolean, integer, pgEnum, pgTable, text, timestamp, uuid, varchar } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
+import {
+  type AnyPgColumn,
+  bigint,
+  boolean,
+  check,
+  index,
+  integer,
+  jsonb,
+  pgEnum,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core'
 
-export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'finished'])
+export const user = pgTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').notNull().default(false),
+  image: text('image'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date()),
+})
 
-/** Une partie : un salon de chat avec un code à partager */
+export const session = pgTable(
+  'session',
+  {
+    id: text('id').primaryKey(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    token: text('token').notNull().unique(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+  },
+  (t) => [index('session_user_id_idx').on(t.userId)],
+)
+
+export const account = pgTable(
+  'account',
+  {
+    id: text('id').primaryKey(),
+    accountId: text('account_id').notNull(),
+    providerId: text('provider_id').notNull(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accessToken: text('access_token'),
+    refreshToken: text('refresh_token'),
+    idToken: text('id_token'),
+    accessTokenExpiresAt: timestamp('access_token_expires_at', { withTimezone: true }),
+    refreshTokenExpiresAt: timestamp('refresh_token_expires_at', { withTimezone: true }),
+    scope: text('scope'),
+    password: text('password'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index('account_user_id_idx').on(t.userId)],
+)
+
+export const verification = pgTable(
+  'verification',
+  {
+    id: text('id').primaryKey(),
+    identifier: text('identifier').notNull(),
+    value: text('value').notNull(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [index('verification_identifier_idx').on(t.identifier)],
+)
+
+export const jwks = pgTable('jwks', {
+  id: text('id').primaryKey(),
+  publicKey: text('public_key').notNull(),
+  privateKey: text('private_key').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  alg: text('alg'),
+  crv: text('crv'),
+})
+
+export const rateLimit = pgTable('rate_limit', {
+  id: text('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  count: integer('count').notNull(),
+  lastRequest: bigint('last_request', { mode: 'number' }).notNull(),
+})
+
+export const MAX_PLAYERS = 6
+export const MIN_PLAYERS = 4
+export const MIN_AIS = 1
+export const MAX_AIS = 2
+export const MAX_HUMANS = MAX_PLAYERS - MIN_AIS
+export const MIN_HUMANS = MIN_PLAYERS - MAX_AIS
+
+export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'results', 'finished'])
+
 export const games = pgTable('games', {
   id: uuid('id').primaryKey().defaultRandom(),
   code: varchar('code', { length: 8 }).notNull().unique(),
   status: gameStatus('status').notNull().default('lobby'),
   round: integer('round').notNull().default(0),
+  turnOrder: jsonb('turn_order').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  turnIndex: integer('turn_index').notNull().default(0),
+  turnDeadline: timestamp('turn_deadline', { withTimezone: true }),
+  theme: text('theme'),
+  lastEliminatedId: uuid('last_eliminated_id').references((): AnyPgColumn => players.id, {
+    onDelete: 'set null',
+  }),
   winner: varchar('winner', { length: 16 }), // 'humans' | 'ais'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-/** Joueurs d'une partie, humains ou IA imposteurs */
-export const players = pgTable('players', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  gameId: uuid('game_id')
-    .notNull()
-    .references(() => games.id, { onDelete: 'cascade' }),
-  nickname: varchar('nickname', { length: 32 }).notNull(),
-  isAi: boolean('is_ai').notNull().default(false),
-  persona: text('persona'), // prompt de personnalité pour les IA
-  isEliminated: boolean('is_eliminated').notNull().default(false),
-  joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const players = pgTable(
+  'players',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    userId: text('user_id').references(() => user.id, { onDelete: 'set null' }),
+    nickname: varchar('nickname', { length: 32 }).notNull(),
+    seat: integer('seat').notNull(),
+    isAi: boolean('is_ai').notNull().default(false),
+    persona: text('persona'), // personality prompt for AI players
+    isEliminated: boolean('is_eliminated').notNull().default(false),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique('players_game_user_unique').on(t.gameId, t.userId),
+    unique('players_game_seat_unique').on(t.gameId, t.seat),
+    unique('players_game_nickname_unique').on(t.gameId, t.nickname),
+    check('players_seat_range', sql`${t.seat} between 1 and ${sql.raw(String(MAX_PLAYERS))}`),
+    check('players_human_seat_range', sql`${t.isAi} or ${t.seat} <= ${sql.raw(String(MAX_HUMANS))}`),
+  ],
+)
 
-/** Messages du chat */
 export const messages = pgTable('messages', {
   id: uuid('id').primaryKey().defaultRandom(),
   gameId: uuid('game_id')
@@ -38,18 +168,37 @@ export const messages = pgTable('messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 
-/** Votes d'élimination, un par joueur et par manche */
-export const votes = pgTable('votes', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  gameId: uuid('game_id')
-    .notNull()
-    .references(() => games.id, { onDelete: 'cascade' }),
-  round: integer('round').notNull(),
-  voterId: uuid('voter_id')
-    .notNull()
-    .references(() => players.id, { onDelete: 'cascade' }),
-  targetId: uuid('target_id')
-    .notNull()
-    .references(() => players.id, { onDelete: 'cascade' }),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-})
+export const reactions = pgTable(
+  'reactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    messageId: uuid('message_id')
+      .notNull()
+      .references(() => messages.id, { onDelete: 'cascade' }),
+    playerId: uuid('player_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    emoji: varchar('emoji', { length: 8 }).notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('reactions_message_player_emoji_unique').on(t.messageId, t.playerId, t.emoji)],
+)
+
+export const votes = pgTable(
+  'votes',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    round: integer('round').notNull(),
+    voterId: uuid('voter_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    targetId: uuid('target_id')
+      .notNull()
+      .references(() => players.id, { onDelete: 'cascade' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique('votes_game_round_voter_unique').on(t.gameId, t.round, t.voterId)],
+)

@@ -30,3 +30,10 @@ dist-ssr
 
 # Build API
 apps/api/dist
+
+# pnpm
+.pnpm-store
+
+# Claude worktrees
+.claude/worktrees
+

@@ -1,26 +1,24 @@
-import { useEffect, useState } from 'react'
-
-type Health = { status: 'ok' | 'error'; db: boolean }
+import { BrowserRouter, Route, Routes } from 'react-router'
+import { RequireAuth } from '@/components/auth/require-auth'
+import { ROUTES } from '@/lib/routes'
+import { AuthPage } from '@/pages/auth'
+import { GamePage } from '@/pages/game'
+import { LandingPage } from '@/pages/landing'
+import { PlayPage } from '@/pages/play'
 
 function App() {
-  const [health, setHealth] = useState<Health | null>(null)
-
-  useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json() as Promise<Health>)
-      .then(setHealth)
-      .catch(() => setHealth({ status: 'error', db: false }))
-  }, [])
-
   return (
-    <main className="app">
-      <h1>Aimong Us</h1>
-      <p>Des IA se cachent parmi vous. Discutez, soupçonnez, votez.</p>
-      <p className="status">
-        API : {health ? health.status : '…'} · Base de données :{' '}
-        {health ? (health.db ? 'connectée' : 'non connectée') : '…'}
-      </p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route path={ROUTES.home} element={<LandingPage />} />
+        <Route path={ROUTES.login} element={<AuthPage mode="sign-in" />} />
+        <Route path={ROUTES.register} element={<AuthPage mode="sign-up" />} />
+        <Route element={<RequireAuth />}>
+          <Route path={ROUTES.play} element={<PlayPage />} />
+          <Route path={ROUTES.game} element={<GamePage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
 
