@@ -1,6 +1,7 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
 import { MAX_HUMANS, MAX_PLAYERS, MIN_PLAYERS, games, messages, players, votes } from './db/schema.js'
+import { loadReactionsByMessage } from './reactions.js'
 import { onlinePlayerIds } from './rooms.js'
 
 export type Game = typeof games.$inferSelect
@@ -120,5 +121,7 @@ export async function loadRecentMessages(gameId: string) {
     .where(eq(messages.gameId, gameId))
     .orderBy(desc(messages.createdAt))
     .limit(MESSAGES_HISTORY_LIMIT)
-  return recent.reverse()
+  const ordered = recent.reverse()
+  const reactionsByMessage = await loadReactionsByMessage(ordered.map((message) => message.id))
+  return ordered.map((message) => ({ ...message, reactions: reactionsByMessage.get(message.id) ?? [] }))
 }
