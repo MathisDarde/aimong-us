@@ -1,26 +1,31 @@
 #!/bin/sh
 # Builds the app image and deploys it to an Amazon Lightsail container service.
-# Requires AWS CLI v2, lightsailctl, Docker (or Podman) and a .env.production file
-# at the repo root defining DATABASE_URL and BETTER_AUTH_SECRET.
+# Requires AWS CLI v2, lightsailctl, Docker (or Podman), and DATABASE_URL and
+# BETTER_AUTH_SECRET either exported or defined in a .env.production file at the repo root.
 set -eu
 
 SERVICE=aimong-us
 REGION=eu-north-1
 POWER=micro
-PROFILE=${AWS_PROFILE:-aimong-us}
 APP_PORT=3000
 # Lightsail's load balancer reaches the container from its private network
 LIGHTSAIL_PROXY_RANGE=172.16.0.0/12
 
 cd "$(dirname "$0")/.."
-set -a
-. ./.env.production
-set +a
+if [ -f .env.production ]; then
+  set -a
+  . ./.env.production
+  set +a
+fi
+: "${DATABASE_URL:?DATABASE_URL is not set}"
+: "${BETTER_AUTH_SECRET:?BETTER_AUTH_SECRET is not set}"
 
+# Locally, use the aimong-us profile; in CI, credentials come from the environment
+if [ -z "${CI:-}" ]; then export AWS_PROFILE="${AWS_PROFILE:-aimong-us}"; fi
 # lightsailctl cannot read `aws login` sessions, so hand it the resolved credentials
-eval "$(aws configure export-credentials --profile "$PROFILE" --format env)"
+eval "$(aws configure export-credentials --format env)"
 
-lightsail() { aws lightsail --profile "$PROFILE" --region "$REGION" "$@"; }
+lightsail() { aws lightsail --region "$REGION" "$@"; }
 service_field() { lightsail get-container-services --service-name "$SERVICE" --query "containerServices[0].$1" --output text; }
 
 if ! lightsail get-container-services --service-name "$SERVICE" >/dev/null 2>&1; then

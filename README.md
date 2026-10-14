@@ -73,6 +73,8 @@ Then:
 pnpm deploy:aws
 ```
 
+Pushing to `main` also deploys automatically through `.github/workflows/deploy.yml`. It needs four repository secrets: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments), `DATABASE_URL` and `BETTER_AUTH_SECRET`.
+
 The first run creates the container service. Each run builds the image, pushes it, deploys it and prints the public URL. Run `pnpm db:migrate` against the production database before deploying code that needs new migrations.
 
 ## Branches
