@@ -1,14 +1,20 @@
-export type GameStatus = 'lobby' | 'playing' | 'voting' | 'finished'
+export type GameStatus = 'lobby' | 'playing' | 'voting' | 'results' | 'finished'
+
+export type Role = 'ai' | 'human'
 
 export type PublicPlayer = {
   id: string
   nickname: string
   isEliminated: boolean
   online: boolean
+  role: Role | null
 }
 
 export type GameState = {
   game: { id: string; code: string; status: GameStatus; round: number; winner: string | null }
+  theme: string | null
+  maxRounds: number
+  lastResult: { eliminatedId: string | null; role: Role | null } | null
   players: PublicPlayer[]
   hostId: string | null
   minPlayersToStart: number

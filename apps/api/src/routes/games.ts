@@ -37,7 +37,8 @@ import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-erro
 import { createRateLimiter } from '../rate-limit.js'
 import { scheduleAiReactions, toggleReaction } from '../reactions.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
-import { advanceTurn, beginRound, clearTurnTimer, ensureTurnTimer, publishTurnChange } from '../turns.js'
+import { clearPhaseTimer, ensurePhaseTimer, handleVoteCast, publishPhaseChange, schedulePhase } from '../phases.js'
+import { advanceTurn, beginRound } from '../turns.js'
 import { validate } from '../validation.js'
 import {
   broadcast,
@@ -99,8 +100,8 @@ function runSafely(ws: WSContext, task: () => Promise<void>) {
 }
 
 async function handleChat(game: Game, player: Player, content: string, ws: WSContext) {
-  if (game.status === 'finished') {
-    return send(ws, { type: 'error', message: 'The game is over' })
+  if (game.status === 'finished' || game.status === 'results') {
+    return send(ws, { type: 'error', message: 'Chat is closed' })
   }
   if (player.isEliminated) {
     return send(ws, { type: 'error', message: 'Eliminated players cannot chat' })
@@ -113,7 +114,7 @@ async function handleChat(game: Game, player: Player, content: string, ws: WSCon
   if (!claimed) return send(ws, { type: 'error', message: 'It is not your turn' })
 
   await postMessage(game, player, content)
-  await publishTurnChange(claimed)
+  await publishPhaseChange(claimed)
 }
 
 async function postMessage(game: Game, player: Player, content: string) {
@@ -177,7 +178,7 @@ async function handleVote(game: Game, player: Player, targetId: string, ws: WSCo
     return send(ws, { type: 'error', message: 'You have already voted this round' })
   }
 
-  broadcast(game.id, { type: 'game_state', state: await loadGameState(game) })
+  await handleVoteCast(game.id)
 }
 
 async function handleClientMessage(gameId: string, playerId: string, raw: unknown, ws: WSContext) {
@@ -226,7 +227,7 @@ async function stopGame(game: Game): Promise<Game | undefined> {
     .set({ status: 'finished', winner: null })
     .where(and(eq(games.id, game.id), ne(games.status, 'finished')))
     .returning()
-  clearTurnTimer(game.id)
+  clearPhaseTimer(game.id)
   if (stopped) broadcast(game.id, { type: 'game_state', state: await loadGameState(stopped) })
   return stopped
 }
@@ -331,6 +332,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
 
     const state = await loadGameState(started)
     broadcast(game.id, { type: 'game_state', state })
+    await schedulePhase(started)
     return c.json({ state })
   })
   .post('/:code/stop', validate('param', gameCodeParam), requirePlayer, async (c) => {
@@ -392,7 +394,7 @@ export const gamesRoutes = new Hono<AuthEnv>()
           runSafely(ws, async () => {
             const game = await findGameById(gameId)
             if (!game) return ws.close(WS_POLICY_VIOLATION, 'Game not found')
-            await ensureTurnTimer(game)
+            await ensurePhaseTimer(game)
             const state = await loadGameState(game)
             if (isFirstConnection) broadcast(gameId, { type: 'game_state', state })
             else send(ws, { type: 'game_state', state })

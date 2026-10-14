@@ -40,6 +40,13 @@ apps/
 infra/   AWS CDK stack (CloudFront + S3 for the web app, ECS Fargate + internal ALB for the API)
 ```
 
+## Game rules
+
+- The host starts the game (4 to 6 players, 1 or 2 AIs). Each round has a theme and a random speaking order: every active player answers once, 30 seconds per turn.
+- Then everyone votes for 15 seconds (AIs vote too). The player with the most votes is eliminated and their role is revealed; a tie eliminates nobody.
+- The humans win when every AI is out. The AIs win when they are at least as many as the humans, or when round 5 ends with an AI still in.
+- Roles are only sent to clients for eliminated players, and for everyone once the game is finished.
+
 ## Security notes
 
 - Private API routes require an `Authorization: Bearer <jwt>` header (WebSockets send it as the `bearer` subprotocol). Access tokens last 15 minutes and are verified without a database lookup, so a token stays valid until it expires even after sign-out.

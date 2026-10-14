@@ -1,5 +1,6 @@
 import { sql } from 'drizzle-orm'
 import {
+  type AnyPgColumn,
   bigint,
   boolean,
   check,
@@ -113,7 +114,7 @@ export const MAX_AIS = 2
 export const MAX_HUMANS = MAX_PLAYERS - MIN_AIS
 export const MIN_HUMANS = MIN_PLAYERS - MAX_AIS
 
-export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'finished'])
+export const gameStatus = pgEnum('game_status', ['lobby', 'playing', 'voting', 'results', 'finished'])
 
 export const games = pgTable('games', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -123,6 +124,10 @@ export const games = pgTable('games', {
   turnOrder: jsonb('turn_order').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
   turnIndex: integer('turn_index').notNull().default(0),
   turnDeadline: timestamp('turn_deadline', { withTimezone: true }),
+  theme: text('theme'),
+  lastEliminatedId: uuid('last_eliminated_id').references((): AnyPgColumn => players.id, {
+    onDelete: 'set null',
+  }),
   winner: varchar('winner', { length: 16 }), // 'humans' | 'ais'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
