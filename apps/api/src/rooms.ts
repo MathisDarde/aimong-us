@@ -6,6 +6,7 @@ export type ServerEvent =
   | { type: 'player_joined'; player: PublicPlayer }
   | { type: 'player_left'; playerId: string }
   | { type: 'game_state'; state: GameState }
+  | { type: 'typing'; playerId: string }
   | { type: 'error'; message: string }
 
 export type Client = { playerId: string; ws: WSContext }

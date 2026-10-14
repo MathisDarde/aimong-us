@@ -13,6 +13,7 @@ export const clientEventSchema = z.discriminatedUnion('type', [
     content: z.string().trim().min(1).max(CHAT_MAX_LENGTH),
   }),
   z.strictObject({ type: z.literal('vote'), targetId: z.uuid() }),
+  z.strictObject({ type: z.literal('typing') }),
 ])
 
 export type ClientEvent = z.infer<typeof clientEventSchema>

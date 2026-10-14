@@ -5,6 +5,7 @@ import {
   check,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgTable,
   text,
@@ -119,6 +120,9 @@ export const games = pgTable('games', {
   code: varchar('code', { length: 8 }).notNull().unique(),
   status: gameStatus('status').notNull().default('lobby'),
   round: integer('round').notNull().default(0),
+  turnOrder: jsonb('turn_order').$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+  turnIndex: integer('turn_index').notNull().default(0),
+  turnDeadline: timestamp('turn_deadline', { withTimezone: true }),
   winner: varchar('winner', { length: 16 }), // 'humans' | 'ais'
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })

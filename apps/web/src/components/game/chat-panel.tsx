@@ -1,20 +1,35 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import type { ChatMessage, PublicPlayer } from '@/lib/game-types'
+import { TypingIndicator } from './typing-indicator'
 import { cn } from '@/lib/utils'
 
 const CHAT_MAX_LENGTH = 500
+const TYPING_THROTTLE_MS = 2000
 
 type ChatPanelProps = {
   messages: ChatMessage[]
   players: PublicPlayer[]
   meId: string | null
   canSend: boolean
+  closedReason: string
+  typingNames: string[]
   onSend: (content: string) => void
+  onTyping: () => void
 }
 
-export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPanelProps) {
+export function ChatPanel({
+  messages,
+  players,
+  meId,
+  canSend,
+  closedReason,
+  typingNames,
+  onSend,
+  onTyping,
+}: ChatPanelProps) {
   const [draft, setDraft] = useState('')
+  const lastTypingSentAt = useRef(0)
   const listRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -28,6 +43,14 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
     if (!content) return
     onSend(content)
     setDraft('')
+  }
+
+  function handleChange(value: string) {
+    setDraft(value)
+    const now = Date.now()
+    if (!value || now - lastTypingSentAt.current < TYPING_THROTTLE_MS) return
+    lastTypingSentAt.current = now
+    onTyping()
   }
 
   function nicknameOf(playerId: string) {
@@ -56,14 +79,16 @@ export function ChatPanel({ messages, players, meId, canSend, onSend }: ChatPane
         })}
       </div>
 
+      <TypingIndicator names={typingNames} />
+
       <form onSubmit={handleSubmit} className="flex gap-3 border-t-4 border-ink bg-nuit-400 p-3">
         <input
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={(e) => handleChange(e.target.value)}
           maxLength={CHAT_MAX_LENGTH}
           disabled={!canSend}
           aria-label="Message"
-          placeholder={canSend ? 'Type a message…' : 'Chat is closed'}
+          placeholder={canSend ? 'Type a message…' : closedReason}
           className="min-w-0 flex-1 rounded-[14px] border-3 border-ink bg-creme px-4 py-2 text-ink outline-0 focus-visible:ring-[3px] focus-visible:ring-cyan/60 disabled:opacity-60"
         />
         <Button type="submit" size="sm" disabled={!canSend}>
