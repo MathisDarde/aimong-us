@@ -31,6 +31,13 @@ export function stopGame(code: string) {
   })
 }
 
+export function requestRematch(code: string) {
+  return apiFetch<{ code: string }>(`/api/games/${code}/rematch`, {
+    method: 'POST',
+    headers: JSON_HEADERS,
+  })
+}
+
 export function leaveGame(code: string) {
   return apiFetch<null>(`/api/games/${code}/leave`, { method: 'POST', headers: JSON_HEADERS })
 }
