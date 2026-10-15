@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { APIError } from 'better-auth/api'
-import { jwt } from 'better-auth/plugins'
+import { jwt, openAPI } from 'better-auth/plugins'
 import { db } from './db/index.js'
 import { account, jwks, rateLimit, session, user, verification } from './db/schema.js'
 import { env } from './env.js'
@@ -20,6 +20,7 @@ export const auth = betterAuth({
     schema: { user, session, account, verification, jwks, rateLimit },
   }),
   plugins: [
+    openAPI(),
     jwt({
       jwt: {
         expirationTime: ACCESS_TOKEN_TTL,
