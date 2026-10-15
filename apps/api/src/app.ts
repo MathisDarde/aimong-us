@@ -1,3 +1,4 @@
+import { swaggerUI } from '@hono/swagger-ui'
 import { getConnInfo } from '@hono/node-server/conninfo'
 import { Hono, type Context } from 'hono'
 import { bodyLimit } from 'hono/body-limit'
@@ -9,6 +10,7 @@ import { env } from './env.js'
 import { logError } from './logger.js'
 import { accessLog } from './middleware/access-log.js'
 import { webApp } from './middleware/web-app.js'
+import { openApiDocument } from './openapi.js'
 import { gamesRoutes } from './routes/games.js'
 import { health } from './routes/health.js'
 import { me } from './routes/me.js'
@@ -45,6 +47,8 @@ export const app = new Hono()
     }),
   )
   .on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(withClientIp(c)))
+  .get('/api/openapi.json', (c) => c.json(openApiDocument))
+  .get('/api/docs', swaggerUI({ url: '/api/openapi.json' }))
   .route('/api/health', health)
   .route('/api/me', me)
   .route('/api/games', gamesRoutes)
