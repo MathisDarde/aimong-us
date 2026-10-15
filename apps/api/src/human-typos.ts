@@ -1,7 +1,10 @@
 import { randomInt } from 'node:crypto'
+import type { StyleProfile } from './chat-style.js'
 
-const TYPO_CHANCE_PERCENT = 40
-const FINAL_PERIOD_REMOVAL_PERCENT = 85
+const DEFAULT_TYPO_CHANCE_PERCENT = 40
+const MIN_TYPO_CHANCE_PERCENT = 10
+const MAX_TYPO_CHANCE_PERCENT = 55
+const DEFAULT_FINAL_PERIOD_REMOVAL_PERCENT = 85
 const PERCENT = 100
 const MIN_WORD_LENGTH = 4
 
@@ -39,9 +42,30 @@ function introduceTypo(text: string): string {
   return text.slice(0, word.index) + mistyped + text.slice(word.index + word[0].length)
 }
 
-export function humanize(reply: string): string {
-  let text = reply
-  if (randomInt(PERCENT) < FINAL_PERIOD_REMOVAL_PERCENT) text = text.replace(FINAL_PERIOD, '')
-  if (randomInt(PERCENT) < TYPO_CHANCE_PERCENT) text = introduceTypo(text)
+function chance(percent: number): boolean {
+  return randomInt(PERCENT) < percent
+}
+
+// Players who skip capitals and punctuation are also the ones who leave typos behind.
+function typoChancePercent(profile: StyleProfile): number {
+  const sloppiness = (profile.lowercaseStartRate + 1 - profile.finalPunctuationRate) / 2
+  return MIN_TYPO_CHANCE_PERCENT + (MAX_TYPO_CHANCE_PERCENT - MIN_TYPO_CHANCE_PERCENT) * sloppiness
+}
+
+function matchCapital(text: string, profile: StyleProfile): string {
+  const first = text.charAt(0)
+  const lowercase = chance(profile.lowercaseStartRate * PERCENT)
+  return (lowercase ? first.toLocaleLowerCase() : first.toLocaleUpperCase()) + text.slice(1)
+}
+
+export function humanize(reply: string, profile: StyleProfile | null): string {
+  const periodRemovalPercent = profile
+    ? (1 - profile.finalPunctuationRate) * PERCENT
+    : DEFAULT_FINAL_PERIOD_REMOVAL_PERCENT
+  const typoPercent = profile ? typoChancePercent(profile) : DEFAULT_TYPO_CHANCE_PERCENT
+
+  let text = profile ? matchCapital(reply, profile) : reply
+  if (chance(periodRemovalPercent)) text = text.replace(FINAL_PERIOD, '')
+  if (chance(typoPercent)) text = introduceTypo(text)
   return text
 }
