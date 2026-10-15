@@ -28,6 +28,7 @@ export type GameState = {
   minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
+  rematchCode: string | null
   turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 
@@ -93,8 +94,14 @@ function lastResult(game: Game, gamePlayers: Player[]) {
   return { eliminatedId: eliminated?.id ?? null, role: eliminated ? roleOf(eliminated) : null }
 }
 
+async function findRematchCode(game: Game): Promise<string | null> {
+  if (!game.rematchGameId) return null
+  const rematch = await findGameById(game.rematchGameId)
+  return rematch?.code ?? null
+}
+
 export async function loadGameState(game: Game): Promise<GameState> {
-  const [gamePlayers, roundVotes] = await Promise.all([
+  const [gamePlayers, roundVotes, rematchCode] = await Promise.all([
     db.query.players.findMany({
       where: eq(players.gameId, game.id),
       orderBy: game.status === 'lobby' ? asc(players.joinedAt) : asc(players.id),
@@ -103,6 +110,7 @@ export async function loadGameState(game: Game): Promise<GameState> {
       .select({ voterId: votes.voterId })
       .from(votes)
       .where(and(eq(votes.gameId, game.id), eq(votes.round, game.round))),
+    findRematchCode(game),
   ])
   const online = onlinePlayerIds(game.id)
 
@@ -124,6 +132,7 @@ export async function loadGameState(game: Game): Promise<GameState> {
     minPlayersToStart: MIN_PLAYERS,
     maxPlayers: game.status === 'lobby' ? MAX_HUMANS : MAX_PLAYERS,
     votedPlayerIds: roundVotes.map((vote) => vote.voterId),
+    rematchCode,
     turn: {
       playerId: currentTurnPlayerId(game),
       index: game.turnIndex,

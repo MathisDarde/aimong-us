@@ -129,6 +129,9 @@ export const games = pgTable('games', {
     onDelete: 'set null',
   }),
   winner: varchar('winner', { length: 16 }), // 'humans' | 'ais'
+  rematchGameId: uuid('rematch_game_id').references((): AnyPgColumn => games.id, {
+    onDelete: 'set null',
+  }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 })
 

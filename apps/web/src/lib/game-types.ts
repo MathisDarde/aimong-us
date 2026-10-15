@@ -20,6 +20,7 @@ export type GameState = {
   minPlayersToStart: number
   maxPlayers: number
   votedPlayerIds: string[]
+  rematchCode: string | null
   turn: { playerId: string | null; index: number; endsInMs: number | null }
 }
 

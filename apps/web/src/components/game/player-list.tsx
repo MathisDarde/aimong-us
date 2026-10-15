@@ -1,4 +1,5 @@
 import { Avatar } from '@/components/avatar'
+import { RoleStamp } from '@/components/game/role-stamp'
 import type { PublicPlayer } from '@/lib/game-types'
 import { playerLook } from '@/lib/player-look'
 import { cn } from '@/lib/utils'
@@ -9,8 +10,6 @@ type PlayerListProps = {
   votedPlayerIds: string[]
   speakerId: string | null
 }
-
-const ROLE_LABEL = { ai: 'AI', human: 'Human' } as const
 
 function presenceLabel(player: PublicPlayer, speakerId: string | null) {
   if (player.id === speakerId) return 'Speaking'
@@ -45,16 +44,7 @@ export function PlayerList({ players, meId, votedPlayerIds, speakerId }: PlayerL
                 {votedPlayerIds.includes(player.id) && ' · voted'}
               </span>
             </div>
-            {player.role && (
-              <span
-                className={cn(
-                  '-rotate-6 rounded-lg border-3 px-2 font-display text-sm font-bold tracking-[1.5px]',
-                  player.role === 'ai' ? 'border-menthe text-menthe' : 'border-rose text-rose',
-                )}
-              >
-                {ROLE_LABEL[player.role]}
-              </span>
-            )}
+            {player.role && <RoleStamp role={player.role} />}
           </li>
         )
       })}

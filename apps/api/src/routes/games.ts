@@ -36,6 +36,7 @@ import { PG_CHECK_VIOLATION, PG_UNIQUE_VIOLATION, pgErrorCode } from '../pg-erro
 import { scheduleAiLobbyReply } from '../ai-lobby.js'
 import { postMessage } from '../chat.js'
 import { createRateLimiter } from '../rate-limit.js'
+import { createRematch } from '../rematch.js'
 import { toggleReaction } from '../reactions.js'
 import { clientEventSchema, gameCodeParam, type ClientEvent } from '../schemas.js'
 import { clearPhaseTimer, ensurePhaseTimer, handleVoteCast, publishPhaseChange, schedulePhase } from '../phases.js'
@@ -334,6 +335,11 @@ export const gamesRoutes = new Hono<AuthEnv>()
     const stopped = await stopGame(c.get('game'))
     if (!stopped) return c.json({ error: 'The game is already over' }, 409)
     return c.json({ state: await loadGameState(stopped) })
+  })
+  .post('/:code/rematch', validate('param', gameCodeParam), requirePlayer, async (c) => {
+    const rematch = await createRematch(c.get('game'))
+    if (rematch === 'not_finished') return c.json({ error: 'The game is not over yet' }, 409)
+    return c.json({ code: rematch.code })
   })
   .post('/:code/leave', validate('param', gameCodeParam), requirePlayer, async (c) => {
     const game = c.get('game')

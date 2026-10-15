@@ -1,7 +1,9 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { ChatPanel } from '@/components/game/chat-panel'
+import { GameOverPanel } from '@/components/game/game-over-panel'
 import { PlayerList } from '@/components/game/player-list'
 import { PhaseBanner } from '@/components/game/phase-banner'
+import { RoundResultPanel } from '@/components/game/round-result-panel'
 import { ThemeCard } from '@/components/game/theme-card'
 import { VotePanel } from '@/components/game/vote-panel'
 import { Logo } from '@/components/landing/logo'
@@ -9,7 +11,7 @@ import { Button } from '@/components/ui/button'
 import { useCountdown } from '@/hooks/use-countdown'
 import { useGameRoom, type RoomStatus } from '@/hooks/use-game-room'
 import type { GameState, GameStatus } from '@/lib/game-types'
-import { ROUTES } from '@/lib/routes'
+import { ROUTES, gamePath } from '@/lib/routes'
 
 const CONNECTION_NOTICE: Record<RoomStatus, string> = {
   loading: 'Connecting… messages will unlock once live.',
@@ -39,11 +41,12 @@ function statusLabel({ game }: GameState) {
 export function GamePage() {
   const { code } = useParams()
   if (!code) return <Navigate to={ROUTES.play} replace />
-  return <GameRoom code={code.toUpperCase()} />
+  const upperCode = code.toUpperCase()
+  return <GameRoom key={upperCode} code={upperCode} />
 }
 
 function GameRoom({ code }: { code: string }) {
-  const { state, messages, me, status, error, notice, typingIds, send, start, stop, leave } =
+  const { state, messages, me, status, error, notice, typingIds, send, start, stop, rematch, leave } =
     useGameRoom(code)
   const navigate = useNavigate()
   const secondsLeft = useCountdown(
@@ -66,6 +69,7 @@ function GameRoom({ code }: { code: string }) {
   }
 
   if (!state) return <main className="min-h-svh bg-nuit" aria-busy="true" />
+  if (state.rematchCode) return <Navigate to={gamePath(state.rematchCode)} replace />
 
   const myPlayer = state.players.find((player) => player.id === me)
   const live = status === 'live'
@@ -78,6 +82,9 @@ function GameRoom({ code }: { code: string }) {
     .filter((player) => typingIds.includes(player.id) && player.id !== me)
     .map((player) => player.nickname)
   const isVoting = state.game.status === 'voting'
+  const isResults = state.game.status === 'results'
+  const isFinished = state.game.status === 'finished'
+  const hasPhasePanel = isVoting || isResults || isFinished
   const canVote = live && isVoting && !myPlayer?.isEliminated
   const isHost = state.hostId === me
   const isHostInLobby = state.game.status === 'lobby' && isHost
@@ -129,6 +136,16 @@ function GameRoom({ code }: { code: string }) {
             />
           </div>
         )}
+        {isResults && (
+          <div className="basis-full">
+            <RoundResultPanel state={state} secondsLeft={secondsLeft} />
+          </div>
+        )}
+        {isFinished && (
+          <div className="basis-full">
+            <GameOverPanel state={state} meId={me} canPlayAgain={live} onPlayAgain={rematch} />
+          </div>
+        )}
         <section className="flex min-w-0 flex-[1_1_280px] flex-col gap-4">
           <h2 className="m-0 font-display text-2xl font-bold">
             Players {state.players.length}/{state.maxPlayers}
@@ -157,7 +174,7 @@ function GameRoom({ code }: { code: string }) {
           {state.theme && state.game.status !== 'finished' && (
             <ThemeCard theme={state.theme} round={state.game.round} maxRounds={state.maxRounds} />
           )}
-          {!isVoting && <PhaseBanner state={state} meId={me} secondsLeft={secondsLeft} />}
+          {!hasPhasePanel && <PhaseBanner state={state} meId={me} secondsLeft={secondsLeft} />}
           <ChatPanel
             messages={messages}
             players={state.players}

@@ -7,6 +7,7 @@ import {
   gameSocketUrl,
   leaveGame,
   loadGameSnapshot,
+  requestRematch,
   startGame,
   stopGame,
 } from '@/lib/game-api'
@@ -195,6 +196,16 @@ export function useGameRoom(code: string) {
     }
   }, [code])
 
+  const rematch = useCallback(async () => {
+    setNotice(null)
+    try {
+      const { code: rematchCode } = await requestRematch(code)
+      setState((current) => (current ? { ...current, rematchCode } : current))
+    } catch (err) {
+      setNotice(err instanceof ApiError ? err.message : 'Could not start a rematch')
+    }
+  }, [code])
+
   const leave = useCallback(async () => {
     setNotice(null)
     try {
@@ -206,5 +217,5 @@ export function useGameRoom(code: string) {
     }
   }, [code])
 
-  return { state, messages, me, status, error, notice, typingIds, send, start, stop, leave }
+  return { state, messages, me, status, error, notice, typingIds, send, start, stop, rematch, leave }
 }
