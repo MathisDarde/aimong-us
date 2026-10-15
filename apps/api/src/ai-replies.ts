@@ -3,6 +3,7 @@ import { desc, eq } from 'drizzle-orm'
 import { db } from './db/index.js'
 import { messages, players } from './db/schema.js'
 import type { Game, Player } from './game-state.js'
+import { capLength, describeStyle, profileStyle, type StyleProfile } from './chat-style.js'
 import { complete, isLlmConfigured } from './llm.js'
 import { humanize } from './human-typos.js'
 import { logError, logWarn } from './logger.js'
@@ -17,11 +18,19 @@ if (!isLlmConfigured()) logWarn('AI_API_KEY is missing, AI players will pass the
 
 export type ReplyMode = 'turn' | 'lobby'
 
-const TURN_TASK = 'It is your turn: write one message that answers the theme with a concrete invented detail.'
+const TURN_TASK =
+  'It is your turn: write one message that answers the theme with a concrete invented detail, as long and as detailed as the answers the human players gave.'
 const LOBBY_TASK =
   'The game has not started yet: you are chatting in the lobby with the other players. Say something casual, like a real player waiting for the game: greet, joke or react to what was said. Do not talk about the theme, the rules or the game itself, and do not ask who the AIs are.'
 
-function systemPrompt(ai: Player, mode: ReplyMode): string {
+const DEFAULT_STYLE = [
+  '- Nobody has written yet: keep it short, 1 to 12 words.',
+  '- Casual, lowercase, usually no final punctuation.',
+].join('\n')
+
+type ChatLine = { nickname: string; content: string; isAi: boolean }
+
+function systemPrompt(ai: Player, mode: ReplyMode, style: StyleProfile | null): string {
   return [
     `You are ${ai.nickname}, a player in an online party chat game.`,
     'Players answer a theme one after the other, and some of them are AIs pretending to be human that everyone is trying to spot.',
@@ -30,14 +39,12 @@ function systemPrompt(ai: Player, mode: ReplyMode): string {
     '',
     mode === 'lobby' ? LOBBY_TASK : TURN_TASK,
     '',
-    'How real players write here:',
-    '- Very short: often 1 to 12 words, never more than 2 sentences.',
-    '- Match the tone and length of the others, and react to what was just said when it fits.',
-    '- Casual, lowercase. Most of your messages have no final punctuation, so do not end every message with a period, and often skip commas too.',
-    '- Make small spelling mistakes fairly often, about one message out of two: a missing letter, two letters swapped, a missing accent, a word stuck to the next one.',
-    '- Copy the writing habits you see in the chat: the abbreviations, the punctuation, the capital letters and the typos of the other players.',
-    '- Slang and abbreviations are fine.',
-    '- In French, use "tu" and casual French ("ouais", "jsp", "mdr"), never "vous".',
+    'How the human players write in this chat, which you must blend into:',
+    style ? describeStyle(style) : DEFAULT_STYLE,
+    '- Mirror them: if they answer with a long detailed sentence, write a long detailed sentence; if they answer in two words, answer in two words.',
+    '- Pick up their abbreviations, verbal tics, slang and kind of spelling mistakes, without copying any one player word for word.',
+    '- React to what was just said when it fits.',
+    '- In French, use "tu" and casual French, never "vous".',
     '',
     'Never do this, it gets you caught:',
     '- Act like a host or an interviewer, or ask deep, sentimental or open-ended questions.',
@@ -55,18 +62,15 @@ function systemPrompt(ai: Player, mode: ReplyMode): string {
   ].join('\n')
 }
 
-async function recentChat(gameId: string): Promise<string> {
+async function recentChat(gameId: string): Promise<ChatLine[]> {
   const rows = await db
-    .select({ nickname: players.nickname, content: messages.content })
+    .select({ nickname: players.nickname, content: messages.content, isAi: players.isAi })
     .from(messages)
     .innerJoin(players, eq(messages.playerId, players.id))
     .where(eq(messages.gameId, gameId))
     .orderBy(desc(messages.createdAt))
     .limit(HISTORY_LIMIT)
-  return rows
-    .reverse()
-    .map((row) => `${row.nickname}: ${row.content}`)
-    .join('\n')
+  return rows.reverse()
 }
 
 function cleanReply(raw: string, nickname: string): string | null {
@@ -92,20 +96,22 @@ export async function requestAiReply(
   if (!isLlmConfigured()) return null
 
   try {
-    const [chat, seated] = await Promise.all([
+    const [lines, seated] = await Promise.all([
       recentChat(game.id),
       db.query.players.findMany({ where: eq(players.gameId, game.id) }),
     ])
+    const style = profileStyle(lines.filter((line) => !line.isAi).map((line) => line.content))
+    const chat = lines.map((line) => `${line.nickname}: ${line.content}`).join('\n')
     const others = seated.filter((player) => player.id !== ai.id).map((player) => player.nickname)
     const reply = await complete([
-      { role: 'system', content: systemPrompt(ai, mode) },
+      { role: 'system', content: systemPrompt(ai, mode, style) },
       {
         role: 'user',
         content: `Players: ${others.join(', ')} (you are ${ai.nickname})\n${mode === 'turn' ? `Theme: ${game.theme ?? 'anything'}\n` : ''}\n<chat>\n${chat}\n</chat>\n\nYour message:`,
       },
     ])
     const cleaned = cleanReply(reply, ai.nickname)
-    return cleaned ? humanize(cleaned) : null
+    return cleaned ? humanize(capLength(cleaned, style), style) : null
   } catch (err) {
     logError('AI reply failed', err, { gameId: game.id, playerId: ai.id })
     return null
