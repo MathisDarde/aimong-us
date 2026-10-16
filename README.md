@@ -66,7 +66,7 @@ Prerequisites: AWS CLI v2 signed in with `aws login --profile aimong-us`, `light
 DATABASE_URL=postgresql://...
 BETTER_AUTH_SECRET=...
 # Optional, lets AI players write messages
-ANTHROPIC_API_KEY=...
+AI_API_KEY=...
 ```
 
 Then:
@@ -75,7 +75,7 @@ Then:
 pnpm deploy:aws
 ```
 
-Pushing to `main` also deploys automatically through `.github/workflows/deploy.yml`. It needs four repository secrets: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments), `DATABASE_URL` and `BETTER_AUTH_SECRET`, plus the optional `ANTHROPIC_API_KEY` that lets AI players write messages.
+Pushing to `main` also deploys automatically through `.github/workflows/deploy.yml`. It needs four repository secrets: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments), `DATABASE_URL` and `BETTER_AUTH_SECRET`, plus the optional `AI_API_KEY` that lets AI players write messages.
 
 The first run creates the container service. Each run builds the image, pushes it, deploys it and prints the public URL. Run `pnpm db:migrate` against the production database before deploying code that needs new migrations.
 

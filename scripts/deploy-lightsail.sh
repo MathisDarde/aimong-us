@@ -1,7 +1,7 @@
 #!/bin/sh
 # Builds the app image and deploys it to an Amazon Lightsail container service.
 # Requires AWS CLI v2, lightsailctl, Docker (or Podman), and DATABASE_URL and
-# BETTER_AUTH_SECRET (plus optional ANTHROPIC_API_KEY) either exported or defined in a
+# BETTER_AUTH_SECRET (plus optional AI_API_KEY) either exported or defined in a
 # .env.production file at the repo root.
 set -eu
 
@@ -47,7 +47,7 @@ echo "Pushed $IMAGE"
 
 # Optional: without a key the AI players pass their turn
 AI_ENV=""
-if [ -n "${ANTHROPIC_API_KEY:-}" ]; then AI_ENV="\"ANTHROPIC_API_KEY\":\"$ANTHROPIC_API_KEY\","; fi
+if [ -n "${AI_API_KEY:-}" ]; then AI_ENV="\"AI_API_KEY\":\"$AI_API_KEY\","; fi
 
 lightsail create-container-service-deployment --service-name "$SERVICE" \
   --containers "{\"app\":{\"image\":\"$IMAGE\",\"ports\":{\"$APP_PORT\":\"HTTP\"},\"environment\":{
