@@ -60,24 +60,22 @@ Game rooms and online presence live in the API process memory, so the API must r
 
 Production runs as a single container on an Amazon Lightsail container service in `eu-north-1`. The image (root `Dockerfile`) builds the web app and the API; the API serves the built web app next to `/api/*`, so everything stays on one origin.
 
-Prerequisites: AWS CLI v2 signed in with `aws login --profile aimong-us`, `lightsailctl` (`brew install aws/tap/lightsailctl`), Docker or Podman, and a `.env.production` file at the repo root:
+Every push to `main` deploys through `.github/workflows/deploy.yml`: it builds the image, pushes it to Lightsail, starts a deployment and waits until the new version passes the `/api/health` check. If it never does, the previous version stays live. To redeploy without a push:
 
 ```bash
-DATABASE_URL=postgresql://...
-BETTER_AUTH_SECRET=...
-# Optional, lets AI players write messages
-ANTHROPIC_API_KEY=...
+gh workflow run deploy.yml --ref main
 ```
 
-Then:
+The workflow reads these repository secrets:
 
-```bash
-pnpm deploy:aws
-```
+| Secret | Purpose |
+| --- | --- |
+| `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | The `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments |
+| `DATABASE_URL` | Production Neon database |
+| `BETTER_AUTH_SECRET` | Auth signing secret |
+| `AI_API_KEY`, `AI_BASE_URL` | Scaleway Generative APIs, used by AI players (optional) |
 
-Pushing to `main` also deploys automatically through `.github/workflows/deploy.yml`. It needs four repository secrets: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` (the `aimong-us-github-deploy` IAM user, limited to Lightsail container deployments), `DATABASE_URL` and `BETTER_AUTH_SECRET`, plus the optional `ANTHROPIC_API_KEY` that lets AI players write messages.
-
-The first run creates the container service. Each run builds the image, pushes it, deploys it and prints the public URL. Run `pnpm db:migrate` against the production database before deploying code that needs new migrations.
+Migrations are not part of the deploy: run `pnpm db:migrate` against the production database before merging code that needs them.
 
 ## Branches
 
